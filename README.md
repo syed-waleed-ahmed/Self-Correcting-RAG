@@ -36,6 +36,6 @@ self_correcting_rag/
   .env              # contains GROQ_API_KEY (not committed)
 ```
 
-  ## Author
+## Author
   
-  SYED WALEED AHMED
+Created by Syed Waleed Ahmed
