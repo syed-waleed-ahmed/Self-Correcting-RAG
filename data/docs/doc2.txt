@@ -1,0 +1,1 @@
+Guardrail agents are LLM components that validate or filter intermediate results in a pipeline. For example, a guardrail agent can examine retrieved passages and drop those that are off-topic or potentially harmful before they are used to generate an answer.
