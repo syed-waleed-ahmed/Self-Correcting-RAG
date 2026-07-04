@@ -36,8 +36,10 @@ htmlcov/
 # --- Project data artifacts (rebuilt via `scrag ingest`) ------------------
 data/index/
 
-# --- Generated tooling output (not part of the project) -------------------
-graphify-out/
+# --- Generated tooling output ---------------------------------------------
+# Ignore only the disposable extraction cache; the graph deliverables
+# (graph.html, graph.json, GRAPH_REPORT.md) are kept in the repo.
+graphify-out/cache/
 
 # --- Model / HuggingFace caches -------------------------------------------
 .cache/

@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] — 2025-11-17
+## [0.1.0] - 2026-07-05
 
 First production-grade release. Reworks the original prototype into a tested,
 deployable package with a REST API and CLI over a shared core.
@@ -28,7 +28,7 @@ deployable package with a REST API and CLI over a shared core.
 - Optional shared-secret API auth on `/query` and `/ingest` (constant-time
   comparison).
 - Test suite (31 tests) that runs offline with fake embedder/LLM, GitHub Actions
-  CI across Python 3.10–3.12, `Dockerfile` (non-root) and `docker-compose`.
+  CI across Python 3.10-3.12, `Dockerfile` (non-root) and `docker-compose`.
 
 ### Changed
 

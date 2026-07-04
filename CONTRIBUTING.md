@@ -20,7 +20,7 @@ to run and pass the tests.
 
 ## Checks before opening a PR
 
-All of these must pass — CI runs the same on Python 3.10, 3.11 and 3.12:
+All of these must pass - CI runs the same on Python 3.10, 3.11 and 3.12:
 
 ```bash
 ruff check .          # lint (and `ruff format .` to auto-format)
@@ -30,7 +30,7 @@ pytest                # full test suite
 Please also:
 
 - Add or update tests for any behaviour you change. The suite runs offline with
-  a fake embedder and a scriptable fake LLM client (see `tests/conftest.py`) —
+  a fake embedder and a scriptable fake LLM client (see `tests/conftest.py`) -
   new features should be testable the same way, without network calls.
 - Keep functions small and typed. The package ships a `py.typed` marker; avoid
   introducing untyped public APIs.
@@ -43,7 +43,7 @@ Please also:
   `pyproject.toml`, line length 100).
 - **Architecture:** depend on interfaces, not concretions. New backends should
   implement the relevant protocol/ABC (`Embedder`, `VectorStore`, `ChatClient`)
-  and be wired in `scrag/container.py` — orchestration code must not change.
+  and be wired in `scrag/container.py` - orchestration code must not change.
 - **Config:** all tunables live in `scrag/config.py` (`Settings`) and are
   environment-driven; don't hard-code values in modules.
 - **Errors:** raise `LLMError` / `ValueError` from the core; the API layer maps
@@ -51,7 +51,7 @@ Please also:
 
 ## Pull request process
 
-1. Branch from `main` (e.g. `feat/…`, `fix/…`, `docs/…`).
+1. Branch from `main` (e.g. `feat/...`, `fix/...`, `docs/...`).
 2. Make your change with tests and docs.
 3. Ensure `ruff check .` and `pytest` are green.
 4. Open a PR describing the motivation and the change. Update
