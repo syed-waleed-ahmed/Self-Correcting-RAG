@@ -1,7 +1,7 @@
 # Graph Report - D:\Projects & Stuff\self_correcting_rag  (2026-07-05)
 
 ## Corpus Check
-- 33 files · ~35,131 words
+- 33 files · ~35,124 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
