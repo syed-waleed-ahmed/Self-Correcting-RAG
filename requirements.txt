@@ -1,5 +1,5 @@
-openai>=1.0.0
-python-dotenv>=1.0.0
-numpy>=1.23.0
-sentence-transformers>=2.7.0
-torch>=2.0.0
+# Convenience installer. Installs the package plus the local embedding stack
+# (sentence-transformers + torch). For development, prefer:
+#     pip install -e ".[local,dev]"
+# The canonical dependency list lives in pyproject.toml.
+-e .[local]

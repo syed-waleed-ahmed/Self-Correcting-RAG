@@ -1,19 +1,27 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.egg-info/
+build/
+dist/
 
 # Virtual environment
 .venv/
 venv/
 
-# Environment variables
+# Environment variables (never commit secrets)
 .env
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Vector index artifacts (rebuilt via `scrag ingest`)
+data/index/
 
 # OS-specific
 .DS_Store
 Thumbs.db
-
-# Data artifacts (optional)
-data/index.npy
-data/index_meta.txt
