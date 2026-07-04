@@ -5,7 +5,7 @@ retrieves context, guardrails it for relevance, generates a grounded answer, and
 then **evaluates and self-corrects** its own output — exposed as both a REST API
 and a CLI.
 
-[![CI](https://github.com/Waleed-Dexter/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Waleed-Dexter/Self-Correcting-RAG/actions/workflows/ci.yml)
+[![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 

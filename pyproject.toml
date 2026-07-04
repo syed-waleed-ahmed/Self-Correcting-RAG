@@ -50,8 +50,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Waleed-Dexter/Self-Correcting-RAG"
-Repository = "https://github.com/Waleed-Dexter/Self-Correcting-RAG"
+Homepage = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG"
+Repository = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG"
 
 [project.scripts]
 scrag = "scrag.cli:app"
