@@ -62,23 +62,26 @@ without touching orchestration logic.
 - **REST API** (FastAPI) **and CLI** (Typer) over the same core.
 - **Typed configuration** (pydantic-settings), **structured logging** (optional
   JSON), robust output parsing, and clean error → HTTP mapping.
-- **Fully tested** — 30 tests run with fakes (no network, no torch) and in CI
+- **Fully tested** — 31 tests run with fakes (no network, no torch) and in CI
   across Python 3.10–3.12. **Dockerfile** + **docker-compose** included.
 
 ## Install
 
 ```bash
 # 1. Clone and create a virtual environment
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate            # Windows (PowerShell): .venv\Scripts\Activate.ps1
 
 # 2. Install with the local embedding stack (sentence-transformers + torch)
-pip install -e ".[local]"
+pip install -e ".[local]"            # add ,dev for tests + lint: ".[local,dev]"
 
 # 3. Configure your key
-cp .env.example .env         # then edit .env and set GROQ_API_KEY
+cp .env.example .env                 # Windows: copy .env.example .env
+#     then edit .env and set GROQ_API_KEY
 ```
 
 Optional extras: `.[faiss]` (FAISS backend), `.[dev]` (tests + lint), `.[all]`.
+VS Code users get a pre-wired interpreter/test config in `.vscode/settings.json`.
 
 > Get a free Groq API key at <https://console.groq.com>. Any OpenAI-compatible
 > endpoint works — set `SCRAG_LLM_BASE_URL` and the model names accordingly.

@@ -1,27 +1,50 @@
-# Python
+# --- Python ---------------------------------------------------------------
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
+*.egg
 build/
 dist/
+.eggs/
 
-# Virtual environment
+# --- Virtual environments -------------------------------------------------
 .venv/
 venv/
+env/
+ENV/
 
-# Environment variables (never commit secrets)
+# --- Secrets / environment ------------------------------------------------
+# Never commit real secrets. Commit .env.example instead.
 .env
+.env.*
+!.env.example
 
-# Tooling caches
+# --- Tooling caches / reports ---------------------------------------------
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.hypothesis/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 
-# Vector index artifacts (rebuilt via `scrag ingest`)
+# --- Project data artifacts (rebuilt via `scrag ingest`) ------------------
 data/index/
 
-# OS-specific
+# --- Model / HuggingFace caches -------------------------------------------
+.cache/
+*.log
+
+# --- Editors / IDEs -------------------------------------------------------
+.idea/
+# Ignore local VS Code state but keep the shared interpreter/test config.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+
+# --- OS-specific ----------------------------------------------------------
 .DS_Store
 Thumbs.db
