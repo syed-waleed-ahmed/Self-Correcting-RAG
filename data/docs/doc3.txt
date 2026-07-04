@@ -1,0 +1,7 @@
+The evaluator agent judges whether a generated answer is factually supported by
+the retrieved context. It returns a score between 0.0 and 1.0 together with a
+short explanation. When the score falls below a configured threshold, the
+pipeline triggers self-correction: it feeds the low-scoring answer back to the
+generator and asks for an improved, better-grounded response. The loop runs for
+a bounded number of attempts and always keeps the highest-scoring answer, so
+self-correction can never return a worse answer than one already produced.

@@ -1,51 +1,23 @@
-import argparse
+"""Backward-compatible entry point.
 
-from src.retriever import build_index
-from src.pipeline import SelfCorrectingRAGPipeline
+Prefer installing the package (``pip install -e .``) and using the ``scrag``
+command. This shim lets ``python main.py <command>`` work straight from a clone
+by putting ``src/`` on the path and delegating to the Typer CLI.
 
+Examples:
+    python main.py ingest
+    python main.py query "What is a guardrail agent?"
+    python main.py serve
+"""
 
-def main():
-    parser = argparse.ArgumentParser(description="Self-Correcting RAG Pipeline")
-    parser.add_argument(
-        "--build-index",
-        action="store_true",
-        help="Build the vector index from documents and exit.",
-    )
-    parser.add_argument(
-        "--query",
-        type=str,
-        help="Question to ask the RAG system.",
-    )
+from __future__ import annotations
 
-    args = parser.parse_args()
+import sys
+from pathlib import Path
 
-    if args.build_index:
-        build_index()
-        return
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-    if not args.query:
-        print("Please provide --query 'your question' or --build-index.")
-        return
-
-    pipeline = SelfCorrectingRAGPipeline()
-    result = pipeline.run(args.query)
-
-    print("\n=== Final Answer ===")
-    print(result.answer)
-    print("\n=== Evaluation ===")
-    print(f"Score: {result.evaluation_score:.2f}")
-    print(f"Explanation: {result.evaluation_explanation}")
-    print(f"Attempts: {result.attempts}")
-
-    print("\n=== Context Chunks Used ===")
-    for i, doc in enumerate(result.used_docs, start=1):
-        print(
-            f"\n[Chunk {i} from {doc['filename']}, "
-            f"guardrail={doc.get('guardrail_score', 0):.2f}]"
-        )
-        text = doc["text"]
-        print(text[:400] + ("..." if len(text) > 400 else ""))
-
+from scrag.cli import app  # noqa: E402
 
 if __name__ == "__main__":
-    main()
+    app()
