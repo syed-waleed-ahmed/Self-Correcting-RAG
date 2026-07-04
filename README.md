@@ -8,8 +8,25 @@ and a CLI.
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
+![Tests](https://img.shields.io/badge/tests-31%20passing-brightgreen)
 
 ---
+
+## Contents
+
+- [Why this exists](#why-this-exists)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [API reference](#api-reference)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Project structure](#project-structure)
+- [Development](#development)
+- [Scaling notes](#scaling-notes)
+- [License](#license)
 
 ## Why this exists
 
@@ -25,23 +42,23 @@ repair its own mistakes:
 
 ## Architecture
 
-```
-                 ┌──────────────┐
-   query ───────▶│  Retriever   │  local sentence-transformer embeddings
+```text
+                 ┌───────────────┐
+   query ───────▶│   Retriever   │  local sentence-transformer embeddings
                  │ (vector store)│  → top-k chunks (cosine)
-                 └──────┬───────┘
-                        ▼
-                 ┌──────────────┐
-                 │  Guardrail   │  LLM relevance score per chunk (parallel)
-                 │    agent     │  → keep ≥ threshold (fallback: raw retrieval)
-                 └──────┬───────┘
-                        ▼
+                 └───────┬───────┘
+                         ▼
+                 ┌───────────────┐
+                 │   Guardrail   │  LLM relevance score per chunk (parallel)
+                 │     agent     │  → keep ≥ threshold (fallback: raw retrieval)
+                 └───────┬───────┘
+                         ▼
           ┌────────────────────────────┐
-          │  Generator ⇄ Evaluator     │  generate grounded answer, score it,
-          │  self-correction loop      │  correct up to N times, keep best.
+          │   Generator ⇄ Evaluator    │  generate grounded answer, score it,
+          │   self-correction loop     │  correct up to N times, keep best.
           └──────────────┬─────────────┘
                          ▼
-                    final answer + evaluation + citations
+             final answer + evaluation + citations
 ```
 
 Each stage is a small, independently testable component wired together by a
@@ -51,8 +68,8 @@ without touching orchestration logic.
 ## Features
 
 - **Multi-agent pipeline** — retriever, guardrail, generator, evaluator.
-- **Real self-correction** — bounded generate→evaluate loop that never regresses
-  to a worse answer than one it already produced.
+- **Real self-correction** — a bounded generate→evaluate loop that never
+  regresses to a worse answer than one it already produced.
 - **Pluggable vector store** — dependency-free NumPy backend by default (exact
   cosine, `argpartition` top-k), optional **FAISS** backend for large corpora.
 - **Provider-agnostic LLM** — any OpenAI-compatible endpoint (Groq by default,
@@ -69,6 +86,8 @@ without touching orchestration logic.
 
 ```bash
 # 1. Clone and create a virtual environment
+git clone https://github.com/syed-waleed-ahmed/Self-Correcting-RAG.git
+cd Self-Correcting-RAG
 python -m venv .venv
 source .venv/bin/activate            # Windows (PowerShell): .venv\Scripts\Activate.ps1
 
@@ -86,41 +105,62 @@ VS Code users get a pre-wired interpreter/test config in `.vscode/settings.json`
 > Get a free Groq API key at <https://console.groq.com>. Any OpenAI-compatible
 > endpoint works — set `SCRAG_LLM_BASE_URL` and the model names accordingly.
 
-## Quickstart — CLI
+## Quickstart
+
+### CLI
 
 ```bash
 scrag ingest                                   # build the index from data/docs
 scrag query "What triggers self-correction?"   # ask a question
-scrag info                                      # show config + index status
+scrag info                                     # show config + index status
 ```
 
-## Quickstart — REST API
+### REST API
 
 ```bash
-scrag serve                     # http://localhost:8000  (docs at /docs)
+scrag serve                                    # http://localhost:8000 (docs at /docs)
 ```
 
 ```bash
+# Build the index, then ask a question.
 curl -X POST localhost:8000/ingest -H 'content-type: application/json' -d '{"reset": true}'
 
 curl -X POST localhost:8000/query -H 'content-type: application/json' \
      -d '{"query": "What does the guardrail agent do?"}'
 ```
 
-| Method | Path      | Description                                       |
-| ------ | --------- | ------------------------------------------------- |
-| GET    | `/health` | Liveness, index size, model + backend info        |
-| POST   | `/ingest` | (Re)build the index from the configured docs dir  |
-| POST   | `/query`  | Run the full self-correcting pipeline for a query |
-| GET    | `/docs`   | Interactive OpenAPI (Swagger) UI                  |
+Example `/query` response:
 
-## Quickstart — Docker
+```json
+{
+  "query": "What does the guardrail agent do?",
+  "answer": "The guardrail agent examines retrieved passages and drops those that are off-topic or potentially harmful before they are used to generate an answer.",
+  "evaluation_score": 1.0,
+  "evaluation_explanation": "The answer is fully supported by the context.",
+  "attempts": 1,
+  "used_chunks": [
+    { "source": "doc2.txt", "text": "Guardrail agents are LLM components...", "score": 0.64, "guardrail_score": 0.9 }
+  ]
+}
+```
+
+### Docker
 
 ```bash
 export GROQ_API_KEY=your_key_here
-docker compose up --build
-# → API on http://localhost:8000
+docker compose up --build                      # → API on http://localhost:8000
 ```
+
+## API reference
+
+| Method | Path      | Auth¹ | Description                                       |
+| ------ | --------- | :---: | ------------------------------------------------- |
+| GET    | `/health` |  no   | Liveness, index size, model + backend info        |
+| POST   | `/ingest` |  yes  | (Re)build the index from the configured docs dir  |
+| POST   | `/query`  |  yes  | Run the full self-correcting pipeline for a query |
+| GET    | `/docs`   |  no   | Interactive OpenAPI (Swagger) UI                  |
+
+¹ Auth is enforced only when `SCRAG_API_AUTH_TOKEN` is set (see [Security](#security)).
 
 ## Configuration
 
@@ -128,16 +168,16 @@ All settings are environment-driven (prefix `SCRAG_`), with a `.env` fallback.
 The API key also accepts the conventional `GROQ_API_KEY` / `OPENAI_API_KEY`.
 See [`.env.example`](.env.example) for the full list. Highlights:
 
-| Variable                       | Default                          | Meaning                                |
-| ------------------------------ | -------------------------------- | -------------------------------------- |
-| `GROQ_API_KEY`                 | —                                | LLM API key (required for `/query`)    |
-| `SCRAG_LLM_BASE_URL`           | `https://api.groq.com/openai/v1` | OpenAI-compatible endpoint             |
-| `SCRAG_GENERATOR_MODEL`        | `llama-3.1-8b-instant`           | Model for generation/guardrail/eval    |
-| `SCRAG_VECTOR_BACKEND`         | `numpy`                          | `numpy` or `faiss`                     |
-| `SCRAG_TOP_K`                  | `5`                              | Chunks retrieved per query             |
-| `SCRAG_GUARDRAIL_THRESHOLD`    | `0.3`                            | Min relevance to keep a chunk          |
-| `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer|
-| `SCRAG_MAX_SELF_CORRECT_STEPS` | `2`                              | Max generate→evaluate attempts         |
+| Variable                       | Default                          | Meaning                                 |
+| ------------------------------ | -------------------------------- | --------------------------------------- |
+| `GROQ_API_KEY`                 | —                                | LLM API key (required for `/query`)     |
+| `SCRAG_LLM_BASE_URL`           | `https://api.groq.com/openai/v1` | OpenAI-compatible endpoint              |
+| `SCRAG_GENERATOR_MODEL`        | `llama-3.1-8b-instant`           | Model for generation/guardrail/eval     |
+| `SCRAG_VECTOR_BACKEND`         | `numpy`                          | `numpy` or `faiss`                      |
+| `SCRAG_TOP_K`                  | `5`                              | Chunks retrieved per query              |
+| `SCRAG_GUARDRAIL_THRESHOLD`    | `0.3`                            | Min relevance to keep a chunk           |
+| `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer |
+| `SCRAG_MAX_SELF_CORRECT_STEPS` | `2`                              | Max generate→evaluate attempts          |
 | `SCRAG_API_AUTH_TOKEN`         | _(unset)_                        | If set, `/query` + `/ingest` require it |
 
 ## Security
@@ -173,17 +213,18 @@ src/scrag/
 tests/                 pytest suite (fakes; no network or torch)
 ```
 
-## Testing
+## Development
 
 ```bash
-pip install -e ".[dev]"
-ruff check .
-pytest
+pip install -e ".[local,dev]"
+ruff check .          # lint
+pytest                # 31 tests, < 2s, no network or API key needed
 ```
 
-The suite injects a fake embedder and a scriptable fake LLM client, so it runs
-in well under a second with no API key, no network, and no torch — the same path
-CI uses on Python 3.10, 3.11 and 3.12.
+The test suite injects a fake embedder and a scriptable fake LLM client, so it
+runs with no API key, no network, and no torch — the same path CI uses on Python
+3.10, 3.11 and 3.12. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow
+and [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Scaling notes
 
@@ -194,8 +235,8 @@ CI uses on Python 3.10, 3.11 and 3.12.
 - Guardrail scoring is fanned out across a thread pool, so per-query latency
   stays roughly flat as `top_k` grows.
 - The LLM layer is stateless and provider-agnostic, so the API scales
-  horizontally behind a load balancer; the vector index is memory-mapped per
-  worker or externalized via FAISS.
+  horizontally behind a load balancer; the vector index is loaded per worker or
+  externalized via FAISS.
 
 ## License
 

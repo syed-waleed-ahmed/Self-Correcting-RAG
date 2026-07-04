@@ -7,6 +7,9 @@ __pycache__/
 build/
 dist/
 .eggs/
+pip-wheel-metadata/
+.python-version
+.ipynb_checkpoints/
 
 # --- Virtual environments -------------------------------------------------
 .venv/
@@ -33,6 +36,9 @@ htmlcov/
 # --- Project data artifacts (rebuilt via `scrag ingest`) ------------------
 data/index/
 
+# --- Generated tooling output (not part of the project) -------------------
+graphify-out/
+
 # --- Model / HuggingFace caches -------------------------------------------
 .cache/
 *.log
@@ -44,6 +50,11 @@ data/index/
 !.vscode/settings.json
 !.vscode/extensions.json
 *.swp
+
+# --- Misc -----------------------------------------------------------------
+*.bak
+*.tmp
+*.pid
 
 # --- OS-specific ----------------------------------------------------------
 .DS_Store
