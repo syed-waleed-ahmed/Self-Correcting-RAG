@@ -1,8 +1,9 @@
-"""Command-line interface (Typer): ingest, query, serve, info."""
+"""Command-line interface (Typer): ingest, query, serve, info, agent, eval, db."""
 
 from __future__ import annotations
 
-from typing import NoReturn
+from pathlib import Path
+from typing import Any, NoReturn
 
 import typer
 
@@ -118,6 +119,164 @@ def info() -> None:
     typer.echo(f"Generator model : {settings.generator_model}")
     typer.echo(f"Docs dir        : {settings.docs_dir}")
     typer.echo(f"Index dir       : {settings.index_dir}")
+
+
+@app.command()
+def agent(
+    task: str = typer.Argument(..., help="What the agent should do."),
+    approve: list[str] = typer.Option(
+        [], "--approve", help="Approve a sensitive tool for this run (repeatable)."
+    ),
+) -> None:
+    """Run the bounded agent workflow: plan, use tools, write, verify."""
+    settings = _bootstrap()
+    container = build_container(settings)
+    if container.agent is None:
+        _fail("No LLM key configured. Set GROQ_API_KEY (or SCRAG_LLM_API_KEY).")
+    container.load_index()
+    result = container.agent.run(task, approved=frozenset(approve))
+
+    typer.secho(f"\n=== Plan ({result.plan_source}) ===", fg=typer.colors.CYAN, bold=True)
+    for i, step in enumerate(result.plan, 1):
+        typer.echo(f"{i}. {step.tool} {step.input}  - {step.purpose}")
+    if result.status == "awaiting_approval":
+        names = ", ".join(sorted({s.tool for s in result.pending_approval}))
+        _fail(f"\nNeeds human approval for: {names}. Re-run with --approve <tool>.")
+    typer.secho("\n=== Tool calls ===", fg=typer.colors.CYAN, bold=True)
+    for executed in result.steps:
+        call = executed.call
+        typer.echo(f"{executed.index}. {call.tool}: {call.status} ({call.latency_ms} ms)")
+    typer.secho(f"\n=== Answer ({result.status}) ===", fg=typer.colors.GREEN, bold=True)
+    typer.echo(result.answer or result.error or "")
+    if result.verification:
+        v = result.verification
+        score = "n/a" if v.score is None else f"{v.score:.2f}"
+        typer.echo(
+            f"\nVerification: {score} ({'passed' if v.passed else v.status})  |  "
+            f"attempts: {result.attempts}"
+        )
+    typer.echo(f"Usage: {result.usage}")
+
+
+db_app = typer.Typer(
+    help="Database schema migrations (needs SCRAG_DATABASE_URL).", no_args_is_help=True
+)
+app.add_typer(db_app, name="db")
+
+
+def _db_connect() -> Any:
+    settings = _bootstrap()
+    if not settings.database_url:
+        _fail("SCRAG_DATABASE_URL (or DATABASE_URL) is not set.")
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError:
+        _fail('Needs the postgres extra: pip install "self-correcting-rag[postgres]"')
+    return psycopg.connect(
+        settings.database_url,
+        prepare_threshold=None,
+        row_factory=dict_row,
+        connect_timeout=max(1, round(settings.db_connect_timeout_s)),
+    )
+
+
+@db_app.command("status")
+def db_status() -> None:
+    """Show the applied schema version and the latest available one."""
+    from .persistence.migrations import current_version, load_migrations
+
+    latest = max((m.version for m in load_migrations()), default=0)
+    with _db_connect() as conn:
+        version = current_version(conn)
+    typer.echo(f"Schema version: {version} (latest available: {latest})")
+
+
+@db_app.command("upgrade")
+def db_upgrade(
+    to: int | None = typer.Option(None, "--to", help="Target version (default: latest)."),
+) -> None:
+    """Apply pending migrations."""
+    from .persistence.migrations import apply_migrations
+
+    with _db_connect() as conn:
+        applied = apply_migrations(conn, target=to)
+    typer.echo(f"Applied: {applied}" if applied else "Already up to date.")
+
+
+@db_app.command("downgrade")
+def db_downgrade(
+    to: int = typer.Option(..., "--to", help="Version to go back to (0 removes every table)."),
+    yes: bool = typer.Option(False, "--yes", help="Confirm: downgrades delete data."),
+) -> None:
+    """Revert migrations newer than --to. Destructive: the dropped tables' data is lost."""
+    from .persistence.migrations import rollback_migrations
+
+    if not yes:
+        _fail("Downgrading deletes data. Re-run with --yes to confirm.")
+    with _db_connect() as conn:
+        reverted = rollback_migrations(conn, target=to)
+    typer.echo(f"Reverted: {reverted}" if reverted else "Nothing to revert.")
+
+
+@app.command("eval")
+def evaluate(
+    golden: Path = typer.Option(Path("data/eval/golden.jsonl"), help="Golden dataset (JSONL)."),
+    k: int = typer.Option(5, "--k", "-k", help="Cut-off for retrieval metrics."),
+    mode: str = typer.Option("both", help="Retrieval mode: dense, hybrid or both."),
+    answers: bool = typer.Option(
+        False, help="Also run the full pipeline per question (spends LLM quota)."
+    ),
+    limit: int = typer.Option(0, help="Only use the first N questions (0 = all)."),
+    output: Path | None = typer.Option(None, help="Write the full JSON report here."),
+) -> None:
+    """Measure retrieval (and optionally answer) quality on a golden dataset."""
+    import json
+
+    from .container import build_retriever
+    from .evaluation import evaluate_answers, evaluate_retrieval, load_golden, to_jsonable
+
+    settings = _bootstrap()
+    container = build_container(settings)
+    if not container.load_index() or len(container.store) == 0:
+        _fail("Index is empty. Run `scrag ingest` first.")
+    items = load_golden(golden)
+    if limit > 0:
+        items = items[:limit]
+    container.embedder.embed(["warm-up"])  # keep one-time model loading out of latencies
+    modes = ["dense", "hybrid"] if mode == "both" else [mode]
+    if any(m not in {"dense", "hybrid"} for m in modes):
+        _fail("--mode must be dense, hybrid or both.")
+
+    report: dict[str, object] = {"golden": str(golden), "index_size": len(container.store)}
+    typer.secho(f"\nRetrieval @k={k} over {len(items)} questions", bold=True)
+    typer.echo(f"{'mode':<8} {'recall':>7} {'hit':>7} {'MRR':>7} {'nDCG':>7} {'ms':>7}")
+    for m in modes:
+        retriever = build_retriever(settings, container.embedder, container.store, mode=m)
+        r = evaluate_retrieval(retriever, items, k)
+        report[f"retrieval_{m}"] = to_jsonable(r)
+        typer.echo(
+            f"{m:<8} {r.recall_at_k:>7.3f} {r.hit_rate_at_k:>7.3f} {r.mrr:>7.3f} "
+            f"{r.ndcg_at_k:>7.3f} {r.mean_latency_ms:>7.1f}"
+        )
+
+    if answers:
+        if container.pipeline is None:
+            _fail("--answers needs an LLM key (GROQ_API_KEY).")
+        a = evaluate_answers(container.pipeline, items)
+        report["answers"] = to_jsonable(a)
+        typer.secho(f"\nAnswers ({settings.retrieval_mode} retrieval)", bold=True)
+        typer.echo(f"statuses: {a.status_counts}  errors: {a.errors}")
+        typer.echo(
+            f"mean score: {a.mean_score}  mean attempts: {a.mean_attempts}  "
+            f"corrected: {a.corrected}  keyword coverage: {a.keyword_coverage:.3f}  "
+            f"mean latency: {a.mean_latency_ms:.0f} ms"
+        )
+
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        typer.echo(f"\nReport written to {output}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,40 @@
+{"id": "q01", "question": "What is retrieval-augmented generation?", "relevant_sources": ["doc1.txt"], "answer_contains": ["retriev", "generat"], "kind": "semantic"}
+{"id": "q02", "question": "What does a guardrail agent do with retrieved passages?", "relevant_sources": ["doc2.txt", "scrag-architecture.md", "reranking.md"], "answer_contains": ["drop"], "kind": "semantic"}
+{"id": "q03", "question": "When does the pipeline trigger self-correction?", "relevant_sources": ["doc3.txt", "scrag-architecture.md"], "answer_contains": ["threshold"], "kind": "semantic"}
+{"id": "q04", "question": "Why can self-correction never return a worse answer than an earlier attempt?", "relevant_sources": ["doc3.txt", "scrag-architecture.md"], "answer_contains": ["highest"], "kind": "semantic"}
+{"id": "q05", "question": "What is the default chunk size and overlap?", "relevant_sources": ["chunking.md"], "answer_contains": ["1000", "150"], "kind": "lexical"}
+{"id": "q06", "question": "Why are long documents split into smaller passages before indexing?", "relevant_sources": ["chunking.md"], "answer_contains": ["context"], "kind": "semantic"}
+{"id": "q07", "question": "How many dimensions do all-MiniLM-L6-v2 vectors have?", "relevant_sources": ["embeddings.md"], "answer_contains": ["384"], "kind": "lexical"}
+{"id": "q08", "question": "Why does the ONNX embedding backend matter on a 512 MB instance?", "relevant_sources": ["embeddings.md", "free-tier-deployment.md"], "answer_contains": ["memory"], "kind": "semantic"}
+{"id": "q09", "question": "What happens if the configured embedding dimension does not match the model?", "relevant_sources": ["embeddings.md"], "answer_contains": ["fail"], "kind": "semantic"}
+{"id": "q10", "question": "What kinds of terms do embedding models tend to miss?", "relevant_sources": ["embeddings.md", "bm25-keyword-search.md"], "answer_contains": ["identifier"], "kind": "semantic"}
+{"id": "q11", "question": "Why is the inner product equal to cosine similarity in the vector store?", "relevant_sources": ["vector-search.md"], "answer_contains": ["unit"], "kind": "semantic"}
+{"id": "q12", "question": "Which NumPy function selects the best matches in exact search?", "relevant_sources": ["vector-search.md"], "answer_contains": ["argpartition"], "kind": "lexical"}
+{"id": "q13", "question": "What is the CURRENT file used for in index persistence?", "relevant_sources": ["vector-search.md"], "answer_contains": ["generation"], "kind": "lexical"}
+{"id": "q14", "question": "Which approximate nearest neighbour structures can replace a flat index?", "relevant_sources": ["vector-search.md"], "answer_contains": ["HNSW"], "kind": "lexical"}
+{"id": "q15", "question": "What does the k1 parameter control in BM25?", "relevant_sources": ["bm25-keyword-search.md"], "answer_contains": ["saturation"], "kind": "lexical"}
+{"id": "q16", "question": "What happens to length normalization when b is set to 0?", "relevant_sources": ["bm25-keyword-search.md"], "answer_contains": ["ignored"], "kind": "lexical"}
+{"id": "q17", "question": "Why do rare query terms count for more in keyword ranking?", "relevant_sources": ["bm25-keyword-search.md"], "answer_contains": ["inverse document frequency"], "kind": "semantic"}
+{"id": "q18", "question": "Why is it hard to merge cosine similarities with BM25 scores directly?", "relevant_sources": ["hybrid-search-rrf.md"], "answer_contains": ["scale"], "kind": "semantic"}
+{"id": "q19", "question": "What constant is commonly used in Reciprocal Rank Fusion?", "relevant_sources": ["hybrid-search-rrf.md"], "answer_contains": ["60"], "kind": "lexical"}
+{"id": "q20", "question": "Who wrote the original RRF paper?", "relevant_sources": ["hybrid-search-rrf.md"], "answer_contains": ["Cormack"], "kind": "lexical"}
+{"id": "q21", "question": "How does a cross-encoder differ from comparing two separate embeddings?", "relevant_sources": ["reranking.md"], "answer_contains": ["together"], "kind": "semantic"}
+{"id": "q22", "question": "Why is reranking only applied to a short list of candidates?", "relevant_sources": ["reranking.md"], "answer_contains": ["expensive"], "kind": "semantic"}
+{"id": "q23", "question": "How does the guardrail save requests against provider rate limits?", "relevant_sources": ["reranking.md"], "answer_contains": ["single"], "kind": "semantic"}
+{"id": "q24", "question": "What are common causes of hallucinations in RAG systems?", "relevant_sources": ["hallucination.md"], "answer_contains": ["retrieval"], "kind": "semantic"}
+{"id": "q25", "question": "Does a high evaluator score prove that an answer is correct?", "relevant_sources": ["hallucination.md", "llm-as-judge.md"], "answer_contains": ["heuristic"], "kind": "semantic"}
+{"id": "q26", "question": "What is self-preference bias?", "relevant_sources": ["llm-as-judge.md"], "answer_contains": ["lenient"], "kind": "lexical"}
+{"id": "q27", "question": "Why should a judge model run at temperature 0?", "relevant_sources": ["llm-as-judge.md"], "answer_contains": ["repeatable"], "kind": "semantic"}
+{"id": "q28", "question": "How should a missing judgement be recorded?", "relevant_sources": ["llm-as-judge.md", "scrag-architecture.md"], "answer_contains": ["unavailable"], "kind": "semantic"}
+{"id": "q29", "question": "In which score formats may a judge write its grade?", "relevant_sources": ["llm-as-judge.md"], "answer_contains": ["percentage"], "kind": "semantic"}
+{"id": "q30", "question": "How can a malicious instruction reach the model without the user typing it?", "relevant_sources": ["prompt-injection.md"], "answer_contains": ["document"], "kind": "semantic"}
+{"id": "q31", "question": "Which defenses reduce the damage of a successful prompt injection?", "relevant_sources": ["prompt-injection.md"], "answer_contains": ["privilege"], "kind": "semantic"}
+{"id": "q32", "question": "What does Mean Reciprocal Rank measure?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["first relevant"], "kind": "lexical"}
+{"id": "q33", "question": "How does nDCG reward relevant results?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["higher"], "kind": "lexical"}
+{"id": "q34", "question": "What is the difference between recall at k and hit rate at k?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["at least one"], "kind": "lexical"}
+{"id": "q35", "question": "What relevance threshold does the guardrail use by default?", "relevant_sources": ["scrag-architecture.md"], "answer_contains": ["0.3"], "kind": "lexical"}
+{"id": "q36", "question": "Which language model does SCRAG use by default?", "relevant_sources": ["scrag-architecture.md"], "answer_contains": ["qwen"], "kind": "lexical"}
+{"id": "q37", "question": "What fields does an API error response contain?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["request_id"], "kind": "lexical"}
+{"id": "q38", "question": "Which endpoint runs retrieval without calling a language model?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["search"], "kind": "lexical"}
+{"id": "q39", "question": "What error code is returned after the demo's daily budget is spent?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["demo_budget_exhausted"], "kind": "lexical"}
+{"id": "q40", "question": "Why is the sample knowledge base built into the container image?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["restart"], "kind": "semantic"}

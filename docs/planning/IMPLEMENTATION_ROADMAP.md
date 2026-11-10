@@ -30,10 +30,10 @@ the **owner's decision**:
 | --- | --- | --- |
 | 0 | Repository audit and planning documents | **Done** |
 | 1 | Core reliability defects | **Done** (see below) |
-| 2 | Advanced RAG foundation + minimal eval harness | Not started |
-| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | Not started |
-| 3 | Agent framework and tool registry | Not started |
-| 4 | Persistence, auth, sessions, durable jobs | Not started |
+| 2 | Advanced RAG foundation + minimal eval harness | **Done** (pgvector moved to Phase 4, ADR 0006) |
+| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
+| 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
+| 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
 | 5 | Frontend | Not started (a minimal page ships in 2b) |
 | 6 | Observability and evaluation | Not started |
 | 7 | Security hardening, quotas, load tests | Not started |
@@ -75,7 +75,21 @@ Known limits accepted in Phase 1:
 - The FAISS tests are skipped locally unless `faiss-cpu` is installed; CI runs
   them in a separate job.
 
-## Phase 2: Advanced RAG foundation
+## Phase 2: Advanced RAG foundation (done 2026-11-10)
+
+Delivered:
+- golden set (40 questions) and `scrag eval`, with the baseline measured before
+  hybrid retrieval;
+- `FastEmbedEmbedder` (memory measured);
+- hybrid BM25 + RRF retrieval (measured: MRR 0.915 -> 0.961 at k=5);
+- PDF, DOCX, HTML, CSV and JSON loaders with limits;
+- batched guardrail (verified live).
+
+Collections and `PgVectorStore` moved to Phase 4 (ADR 0006). The reranker is
+deferred until it can be measured on the 0.1 CPU instance. Results are in
+`docs/evaluation.md`, decisions in `docs/decisions/`.
+
+Original scope:
 
 Scope:
 1. **Golden set.** About 30-50 question/answer/source triples over the sample
@@ -103,7 +117,23 @@ Acceptance:
 - pgvector tests are green in CI.
 - No regressions.
 
-## Phase 2b: Walking skeleton deployment
+## Phase 2b: Walking skeleton deployment (built 2026-11-10)
+
+Delivered:
+- `/api/v1`, `/search` and `/demo`;
+- demo mode (rate limit, daily budget, caps, operator-only ingest);
+- recorded sample answers;
+- slim Dockerfile with the bundled index;
+- `render.yaml`;
+- `web/` (Next.js static export);
+- `scripts/smoke.py`;
+- CI container job (512 MB / 0.1 CPU) and web build job.
+
+**Remaining:** creating the Render and Vercel projects. These need the owner's
+accounts; follow `docs/deployment.md`. After that, run the smoke test against
+the live URL and record the evidence.
+
+Original scope:
 
 Scope:
 - Render Free hosts the API image with fastembed and the bundled sample index.
@@ -121,7 +151,25 @@ Acceptance:
 - A smoke-test script passes against the live URL.
 - Evidence (date, commit, output) is recorded in `DEPLOYMENT_PLAN.md`.
 
-## Phase 3: Agents and tools
+## Phase 3: Agents and tools (done 2026-11-10)
+
+Delivered:
+- tool registry with schemas, permissions, timeouts and audit records;
+- three tools: `document_search`, a safe `calculator` and an approval-gated
+  `reindex_documents`;
+- bounded plan -> execute -> write -> verify workflow with one correction;
+- per-run token accounting;
+- `/agent/run`, `/agent/tools` and `scrag agent`;
+- 26 tests;
+- verified live on Groq: a two-tool plan that passed verification and used
+  2,109 tokens.
+
+Known limitation: plan steps are independent, so a step can't consume another
+step's output. In the live run the planner wrote the calculator input from its
+own knowledge, although the final answer was grounded in cited evidence.
+Dependent steps (`$ref` to earlier outputs) are the natural next increment.
+
+Original scope:
 
 Scope:
 - `Tool` and `Agent` contracts (typed I/O, budgets, timeouts, retries, audit
@@ -139,7 +187,51 @@ Acceptance:
 - Step and token budgets are enforced.
 - An approval-required tool can't run without approval.
 
-## Phase 4: Persistence and identity
+## Phase 4: Persistence and identity (done 2026-11-10)
+
+Delivered (ADR 0007, ADR 0008):
+- schema and migrations (plain SQL with downgrades, not Alembic: ADR 0007);
+- anonymous sessions with hashed tokens and a 24 h TTL;
+- JWT verification for admins (JWKS or HS256; e.g. Supabase Auth);
+- conversations and history;
+- uploads stored as extracted text in Postgres, not Supabase Storage (less to
+  secure and store);
+- a durable Postgres job queue with leases, retries and fencing;
+- per-session deletion and expiry purge;
+- a persistent daily budget;
+- search over uploads (pgvector + full text, RRF) with `scope`.
+
+Acceptance, all as tests that run in CI against Postgres 17 with pgvector:
+- data survives a backend restart: `test_api_data_survives_a_backend_restart`;
+- tenant isolation: `test_api_sessions_are_isolated_from_each_other`;
+- a job interrupted by a restart resumes:
+  `test_job_interrupted_by_a_restart_resumes_after_its_lease_expires`.
+
+Evidence:
+- **CI run 42775432973:** the `test-postgres` job ran all 236 tests against
+  Postgres 17 with pgvector; only the 9 FAISS tests were skipped. The CLI
+  migration round trip passed.
+- **Memory:** the container peaked at 220 MB under 512 MB / 0.1 CPU (up from
+  210 MB, because of the new drivers). The image is 307 MB.
+- **Real stack, run locally** (fastembed, live Groq, Postgres):
+  - an upload was ingested in 1.8 s;
+  - the session-scoped answer was correct and passed evaluation;
+  - another session got 404 for the document and the conversation;
+  - the persisted budget kept its count across a server restart.
+- **Live (2026-11-10, commit `c8ef430`):**
+  - Setup: Render Free API with a Neon Free database in Frankfurt, created
+    through the Vercel Neon integration with Auth and Realtime off.
+  - Database startup: the worker connected and migrated on its own, and
+    `/health` reported `persistence: ok`.
+  - Timings: creating a session took 0.2 s; an upload took 0.2 s and its
+    ingestion job finished in 7.9 s on 0.1 CPU; a session-scoped answer was
+    correct and passed evaluation in 2.4 s.
+  - Results: history was saved; another session got 404 for the document
+    and the conversation; admin stats returned 401 without the operator
+    token; deleting the session revoked its token.
+  - `scripts/smoke.py` passed every check.
+
+Original scope:
 
 Scope:
 - Schema and migrations (Alembic).
@@ -192,7 +284,22 @@ Scope:
 - Real screenshots.
 - README, ADRs and a tagged release.
 
-## Open decisions for the owner
+## Decisions taken (2026-11-10)
+
+The owner asked for the work to proceed without further questions, so the
+recommended options were adopted:
+
+1. **Reordering:** a walking skeleton right after Phase 2, and the eval harness
+   inside Phase 2.
+2. **fastembed and the bundled index:** D1 and D2, now ADRs 0001 and 0002.
+3. **Groq-only LLM routing:** D4, now ADR 0004.
+4. **Render card requirement:** still unknown until the account is created.
+   `docs/deployment.md` says not to add a payment method.
+5. **Reduced agent roster** (D7) for Phase 3.
+
+The original questions follow.
+
+## Open decisions for the owner (original)
 
 1. Approve the reordering (Phase 2b and the eval harness in Phase 2)?
 2. Approve fastembed as the deployment embedder (D1) and the bundled sample index

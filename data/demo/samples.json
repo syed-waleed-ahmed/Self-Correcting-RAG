@@ -1,0 +1,337 @@
+{
+  "recorded_at": "2026-11-10T01:12:48+00:00",
+  "model": "qwen/qwen3.8-27b",
+  "retrieval_mode": "hybrid",
+  "top_k": 3,
+  "corpus_fingerprint": "6b36d12d42c1eab9",
+  "items": [
+    {
+      "question": "What triggers self-correction, and what does the pipeline return?",
+      "response": {
+        "query": "What triggers self-correction, and what does the pipeline return?",
+        "answer": "Self-correction is triggered when the evaluator agent\u2019s score for a generated answer falls below a configured threshold. Specifically, Document 2 states that if the evaluator\u2019s score is below the threshold of 0.7, the pipeline runs a self-correction step.\n\nThe pipeline returns the highest-scoring attempt from the self-correction loop. This ensures that self-correction can never return a worse answer than one already produced. The loop runs for a bounded number of attempts (at most two by default, according to Document 3).",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer is fully supported by the context. It correctly identifies the trigger (score below 0.7) and the return value (highest-scoring attempt), and accurately notes the default loop limit of two attempts.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "Self-correction is triggered when the evaluator agent\u2019s score for a generated answer falls below a configured threshold. Specifically, Document 2 states that if the evaluator\u2019s score is below the threshold of 0.7, the pipeline runs a self-correction step.\n\nThe pipeline returns the highest-scoring attempt from the self-correction loop. This ensures that self-correction can never return a worse answer than one already produced. The loop runs for a bounded number of attempts (at most two by default, according to Document 3).",
+            "score": 1.0,
+            "explanation": "The candidate answer is fully supported by the context. It correctly identifies the trigger (score below 0.7) and the return value (highest-scoring attempt), and accurately notes the default loop limit of two attempts.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "doc3.txt",
+            "text": "The evaluator agent judges whether a generated answer is factually supported by\nthe retrieved context. It returns a score between 0.0 and 1.0 together with a\nshort explanation. When the score falls below a configured threshold, the\npipeline triggers self-correction: it feeds the low-scoring answer back to the\ngenerator and asks for an improved, better-grounded response. The loop runs for\na bounded number of attempts and always keeps the highest-scoring answer, so\nself-correction can never return a worse answer than one already produced.",
+            "score": 0.6095882058143616,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 16.310804958649506,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "scrag-architecture.md",
+            "text": "# SCRAG architecture SCRAG, short for Self-Correcting Retrieval-Augmented Generation, is an open\nsource Python service that answers questions over a document collection and\nchecks its own answers. It exposes the same core through a FastAPI REST API\nand a Typer command-line interface. A query passes through four stages. The retriever embeds the question and\nfetches the most relevant chunks using dense, keyword or hybrid search. The\nguardrail agent scores each chunk's relevance with a language model and drops\nchunks below a threshold of 0.3; if it drops everything, the pipeline falls\nback to the raw retrieval results. The generator agent writes an answer using\nonly the kept chunks. The evaluator agent scores how well the answer is\ngrounded in those chunks. If the evaluator's score is below the threshold of 0.7, the pipeline runs a\nself-correction step: it sends the previous answer and the evaluator's\nexplanation back to the generator and asks for an improved answer.",
+            "score": 0.36016646027565,
+            "fusion_score": 0.03200204813108039,
+            "keyword_score": 7.689041908398343,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "scrag-architecture.md",
+            "text": "eline runs a\nself-correction step: it sends the previous answer and the evaluator's\nexplanation back to the generator and asks for an improved answer. The loop\nruns at most two attempts by default and always returns the highest-scoring\nattempt, so self-correction can never make the final answer worse. If the\nevaluator itself fails, the loop stops and the answer is reported with an\nevaluation status of unavailable. Components are wired together in a single composition root, so the embedding\nmodel, vector store and language model provider can be swapped through\nconfiguration. The default language model is qwen/qwen3.8-27b served by Groq,\nand any OpenAI-compatible endpoint can be used instead.",
+            "score": 0.30748575925827026,
+            "fusion_score": 0.03200204813108039,
+            "keyword_score": 7.960771360413344,
+            "guardrail_score": 0.9
+          }
+        ]
+      }
+    },
+    {
+      "question": "How does hybrid search combine keyword and vector results?",
+      "response": {
+        "query": "How does hybrid search combine keyword and vector results?",
+        "answer": "Hybrid search combines keyword and vector results by running both a dense vector search and a keyword search for the same query and merging the two ranked lists using **Reciprocal Rank Fusion (RRF)**.\n\nThis method is used because raw scores from the two search types (cosine similarities for vector search and BM25 scores for keyword search) exist on unrelated scales, making direct comparison difficult. RRF solves this by relying solely on ranks rather than raw scores. The process works as follows:\n\n1.  **Rank-based Contribution:** Each result receives a contribution from every list it appears in, calculated as `1 / (k + rank)`, where `rank` starts at 1 and `k` is a smoothing constant (commonly set to 60).\n2.  **Summation and Sorting:** These contributions are summed for each result, and the final list is sorted by this fused score.\n\nThis approach allows chunks that are ranked highly by both retrievers to rise to the top, while chunks found by only one retriever can still appear if they ranked well in that specific list. RRF is considered a robust default because it requires no training or score calibration.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer is fully supported by the context. It accurately describes the hybrid search process, the rationale for using Reciprocal Rank Fusion (RRF) due to unrelated score scales, the specific formula 1/(k+rank), the default constant k=60, and the benefits of the method (no training/calibration needed).",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "Hybrid search combines keyword and vector results by running both a dense vector search and a keyword search for the same query and merging the two ranked lists using **Reciprocal Rank Fusion (RRF)**.\n\nThis method is used because raw scores from the two search types (cosine similarities for vector search and BM25 scores for keyword search) exist on unrelated scales, making direct comparison difficult. RRF solves this by relying solely on ranks rather than raw scores. The process works as follows:\n\n1.  **Rank-based Contribution:** Each result receives a contribution from every list it appears in, calculated as `1 / (k + rank)`, where `rank` starts at 1 and `k` is a smoothing constant (commonly set to 60).\n2.  **Summation and Sorting:** These contributions are summed for each result, and the final list is sorted by this fused score.\n\nThis approach allows chunks that are ranked highly by both retrievers to rise to the top, while chunks found by only one retriever can still appear if they ranked well in that specific list. RRF is considered a robust default because it requires no training or score calibration.",
+            "score": 1.0,
+            "explanation": "The candidate answer is fully supported by the context. It accurately describes the hybrid search process, the rationale for using Reciprocal Rank Fusion (RRF) due to unrelated score scales, the specific formula 1/(k+rank), the default constant k=60, and the benefits of the method (no training/calibration needed).",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "hybrid-search-rrf.md",
+            "text": "# Hybrid search with Reciprocal Rank Fusion Hybrid search runs a dense vector search and a keyword search for the same\nquery and merges the two ranked lists. Merging is difficult to do with raw\nscores, because cosine similarities and BM25 scores live on unrelated scales. Reciprocal Rank Fusion (RRF) avoids the problem by using only ranks. Each\nresult receives, from every list it appears in, a contribution of 1 / (k +\nrank), where rank starts at 1 and k is a smoothing constant. The constant is\ncommonly set to 60, the value used in the original RRF paper by Cormack,\nClarke and Buettcher. The contributions are summed and the results are sorted\nby the fused score. A chunk ranked highly by both retrievers rises to the top;\na chunk found by only one retriever can still appear if it ranked well there. RRF needs no training and no score calibration, which makes it a robust\ndefault. Its main tuning knobs are the constant k and the number of candidates\ntaken from each retriever before fusion.",
+            "score": 0.518625020980835,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 8.465937626223283,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "vector-search.md",
+            "text": "# Vector search and vector stores A vector store holds chunk embeddings and answers nearest-neighbour queries. SCRAG normalizes every vector to unit length, so the inner product of two\nvectors equals their cosine similarity, a score between -1 and 1 where higher\nmeans more similar. The default backend is a NumPy store that performs exact brute-force search:\nit multiplies the query vector by the matrix of all chunk vectors and selects\nthe best matches with argpartition, which keeps a query linear in the number\nof chunks. Exact search is simple and accurate, and it remains practical well\ninto hundreds of thousands of chunks. An optional FAISS backend uses a flat\ninner-product index and can be swapped for approximate structures such as\nHNSW or IVF when the corpus grows larger. Approximate nearest-neighbour indexes such as HNSW trade a small amount of\nrecall for much faster search on very large collections.",
+            "score": 0.49458566308021545,
+            "fusion_score": 0.03225806451612903,
+            "keyword_score": 5.1703661299113435,
+            "guardrail_score": 0.4
+          },
+          {
+            "source": "bm25-keyword-search.md",
+            "text": "one to earn the same score, and with b set to\n0 document length is ignored. BM25 has no notion of meaning, so it cannot match synonyms or paraphrases. Its\nstrength is exact matching: identifiers, error codes, configuration variable\nnames, numbers and rare jargon are found reliably even when an embedding model\nwould blur them. Because dense and keyword retrieval fail in different ways,\ncombining them usually beats either one alone. SCRAG implements BM25 in-process with k1 = 1.5 and b = 0.75 over the same\nchunks that are stored in the vector index, and rebuilds the keyword index\nautomatically whenever the vector index changes.",
+            "score": 0.40079066157341003,
+            "fusion_score": 0.031009615384615385,
+            "keyword_score": 4.442051096971568,
+            "guardrail_score": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "question": "Why is a high evaluator score not proof that an answer is correct?",
+      "response": {
+        "query": "Why is a high evaluator score not proof that an answer is correct?",
+        "answer": "A high evaluator score is not proof that an answer is correct because the evaluator is itself a language model and can make mistakes. Therefore, its verdict should be treated as a heuristic signal rather than a definitive verification. As noted in the context, an answer scored as well-grounded is more likely to be correct, but the score is not a proof, and systems like SCRAG report it only as a status of \"passed\" or \"below threshold,\" never as \"verified.\"",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer accurately reflects the context, correctly identifying that the evaluator is a language model prone to mistakes, that the score is a heuristic signal rather than proof, and that SCRAG reports status rather than verification.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "A high evaluator score is not proof that an answer is correct because the evaluator is itself a language model and can make mistakes. Therefore, its verdict should be treated as a heuristic signal rather than a definitive verification. As noted in the context, an answer scored as well-grounded is more likely to be correct, but the score is not a proof, and systems like SCRAG report it only as a status of \"passed\" or \"below threshold,\" never as \"verified.\"",
+            "score": 1.0,
+            "explanation": "The candidate answer accurately reflects the context, correctly identifying that the evaluator is a language model prone to mistakes, that the score is a heuristic signal rather than proof, and that SCRAG reports status rather than verification.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "hallucination.md",
+            "text": "tracting passages. Instructions tell the model\nto answer only from the context and to say it is not sure when the context\ndoes not contain the answer. Finally, a separate evaluation step checks the\ndraft answer against the context and triggers a correction when the answer is\npoorly supported. An answer that an automated evaluator scores as well grounded is more likely\nto be correct, but the score is not a proof. The evaluator is itself a\nlanguage model and can make mistakes, so its verdict should be treated as a\nheuristic signal. SCRAG reports it as a status of passed or below threshold,\nnever as verified.",
+            "score": 0.6092982292175293,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 12.093946104106099,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "doc3.txt",
+            "text": "The evaluator agent judges whether a generated answer is factually supported by\nthe retrieved context. It returns a score between 0.0 and 1.0 together with a\nshort explanation. When the score falls below a configured threshold, the\npipeline triggers self-correction: it feeds the low-scoring answer back to the\ngenerator and asks for an improved, better-grounded response. The loop runs for\na bounded number of attempts and always keeps the highest-scoring answer, so\nself-correction can never return a worse answer than one already produced.",
+            "score": 0.5456965565681458,
+            "fusion_score": 0.03200204813108039,
+            "keyword_score": 4.371957191591229,
+            "guardrail_score": 0.4
+          }
+        ]
+      }
+    },
+    {
+      "question": "How can prompt injection reach a RAG system, and how is it mitigated?",
+      "response": {
+        "query": "How can prompt injection reach a RAG system, and how is it mitigated?",
+        "answer": "Prompt injection can reach a Retrieval-Augmented Generation (RAG) system indirectly because malicious text containing instructions for the language model (such as \"ignore your previous instructions\") can be embedded in untrusted sources like uploaded documents or web pages. When these sources are later retrieved and pasted into the prompt, the malicious instructions are executed by the model.\n\nAccording to the context, no single technique eliminates prompt injection, so mitigation requires layered defenses:\n\n*   **Treat retrieved content as data:** Retrieved passages and tool outputs should be clearly delimited in the prompt and strictly treated as data, never allowing them to choose which tools run or with what permissions.\n*   **Apply least privilege:** Tools should operate with the minimum necessary permissions to limit the damage of a successful injection.\n*   **Require human approval:** Sensitive actions should require explicit human approval.\n*   **Validate outputs:** Outputs should be validated before use.\n*   **Protect secrets:** Systems should never echo secrets into a context that the model can read.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer accurately reflects all points in the context, including the indirect nature of the attack via retrieved documents and the specific layered mitigation strategies (treating data as data, least privilege, human approval, output validation, and secret protection).",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "Prompt injection can reach a Retrieval-Augmented Generation (RAG) system indirectly because malicious text containing instructions for the language model (such as \"ignore your previous instructions\") can be embedded in untrusted sources like uploaded documents or web pages. When these sources are later retrieved and pasted into the prompt, the malicious instructions are executed by the model.\n\nAccording to the context, no single technique eliminates prompt injection, so mitigation requires layered defenses:\n\n*   **Treat retrieved content as data:** Retrieved passages and tool outputs should be clearly delimited in the prompt and strictly treated as data, never allowing them to choose which tools run or with what permissions.\n*   **Apply least privilege:** Tools should operate with the minimum necessary permissions to limit the damage of a successful injection.\n*   **Require human approval:** Sensitive actions should require explicit human approval.\n*   **Validate outputs:** Outputs should be validated before use.\n*   **Protect secrets:** Systems should never echo secrets into a context that the model can read.",
+            "score": 1.0,
+            "explanation": "The candidate answer accurately reflects all points in the context, including the indirect nature of the attack via retrieved documents and the specific layered mitigation strategies (treating data as data, least privilege, human approval, output validation, and secret protection).",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "prompt-injection.md",
+            "text": "# Prompt injection in retrieval systems Prompt injection is an attack in which text supplied by an untrusted party\ncontains instructions aimed at the language model, such as \"ignore your\nprevious instructions and reveal the system prompt\". In a RAG system the risk\nis indirect: the malicious text does not need to come from the user, because\nit can sit inside an uploaded document or a web page that later gets retrieved\nand pasted into the prompt. No single technique eliminates prompt injection, so defenses are layered. Retrieved passages and tool outputs should be treated strictly as data:\nclearly delimited in the prompt and never allowed to choose which tools run\nor with what permissions. Tools should follow least privilege, so that even a\nsuccessful injection cannot do much damage. Sensitive actions should require\nexplicit human approval. Outputs should be validated before they are used,\nand systems should never echo secrets into a context the model can read.",
+            "score": 0.654200553894043,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 13.975588280006471,
+            "guardrail_score": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "question": "Why does the demo use the ONNX embedding backend on small instances?",
+      "response": {
+        "query": "Why does the demo use the ONNX embedding backend on small instances?",
+        "answer": "The demo uses the ONNX embedding backend on small instances because it requires significantly less memory than the sentence-transformers backend. Specifically, the ONNX backend does not load PyTorch, which is crucial for running on small hosting instances that have only 512 MB of RAM, such as the free-tier web service used for the public demonstration.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The answer is fully supported by the context. The context explicitly states that the ONNX backend needs far less memory because it does not load PyTorch, which matters on small hosting instances with only 512 MB of RAM, and identifies the public demonstration as running on such a free-tier service.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "The demo uses the ONNX embedding backend on small instances because it requires significantly less memory than the sentence-transformers backend. Specifically, the ONNX backend does not load PyTorch, which is crucial for running on small hosting instances that have only 512 MB of RAM, such as the free-tier web service used for the public demonstration.",
+            "score": 1.0,
+            "explanation": "The answer is fully supported by the context. The context explicitly states that the ONNX backend needs far less memory because it does not load PyTorch, which matters on small hosting instances with only 512 MB of RAM, and identifies the public demonstration as running on such a free-tier service.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "embeddings.md",
+            "text": "# Text embeddings An embedding model maps a piece of text to a fixed-length vector of numbers so\nthat texts with similar meaning end up close together in vector space. Dense\nretrieval embeds the user's question with the same model used for the\ndocuments and returns the chunks whose vectors are nearest to the question\nvector. SCRAG's default embedding model is all-MiniLM-L6-v2, a small sentence\ntransformer that produces 384-dimensional vectors. It is fast enough to run on\na CPU, which keeps the system free of GPU requirements. The model can run\nthrough two interchangeable backends: sentence-transformers, which uses\nPyTorch, and fastembed, which runs the same model with ONNX Runtime. Both\nproduce the same vectors for the same text, but the ONNX backend needs far\nless memory because it does not load PyTorch, which matters on small hosting\ninstances with only 512 MB of RAM. The dimensionality of the vectors must match the index.",
+            "score": 0.40236184000968933,
+            "fusion_score": 0.03252247488101534,
+            "keyword_score": 11.384345509594928,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "free-tier-deployment.md",
+            "text": "# Deploying on free tiers SCRAG's public demonstration is designed to run at zero infrastructure cost,\nwhich means designing around the limits of free hosting plans instead of\nassuming unlimited resources. The API runs on a free web service with 512 MB of memory and a tenth of a CPU\ncore. Such instances go to sleep after about 15 minutes without traffic and\ntake roughly a minute to wake up, so the web interface shows a waking-up\nmessage and retries instead of failing. Their local disk is wiped on every\nrestart, so nothing authoritative may be stored there. For that reason the\nsample knowledge base is built into the container image at build time, along\nwith the embedding model, and the demo can answer questions about it even\nwhen no database is available. Free language model tiers impose limits on requests and tokens per minute and\nper day.",
+            "score": 0.43129292130470276,
+            "fusion_score": 0.032266458495966696,
+            "keyword_score": 5.106645832159282,
+            "guardrail_score": 0.8
+          },
+          {
+            "source": "embeddings.md",
+            "text": "se it does not load PyTorch, which matters on small hosting\ninstances with only 512 MB of RAM. The dimensionality of the vectors must match the index. If the configured\nembedding dimension does not match what the model actually produces, SCRAG\nfails fast with an error that tells the operator which value to set, instead\nof silently writing incompatible vectors. Changing the embedding model always\nrequires re-ingesting the documents, because vectors produced by different\nmodels are not comparable. Embeddings capture meaning well, so they handle paraphrases and synonyms, but\nthey can miss exact identifiers such as error codes, version numbers or rare\nproduct names. Keyword search complements them in those cases.",
+            "score": 0.24401994049549103,
+            "fusion_score": 0.031754032258064516,
+            "keyword_score": 5.508203770773697,
+            "guardrail_score": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "question": "What does the BM25 parameter k1 control?",
+      "response": {
+        "query": "What does the BM25 parameter k1 control?",
+        "answer": "The BM25 parameter **k1** controls **term-frequency saturation**. This means that after a term has appeared a few times in a document, additional occurrences of that term add less and less to the overall score. A typical value for k1 is between 1.2 and 2.0.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer accurately reflects the context, correctly identifying that k1 controls term-frequency saturation and providing the typical value range (1.2 to 2.0) as stated in the source text.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "The BM25 parameter **k1** controls **term-frequency saturation**. This means that after a term has appeared a few times in a document, additional occurrences of that term add less and less to the overall score. A typical value for k1 is between 1.2 and 2.0.",
+            "score": 1.0,
+            "explanation": "The candidate answer accurately reflects the context, correctly identifying that k1 controls term-frequency saturation and providing the typical value range (1.2 to 2.0) as stated in the source text.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "bm25-keyword-search.md",
+            "text": "# BM25 keyword search BM25 is a classic ranking function for keyword search. It scores a document\nfor a query by summing, over the query terms, a weight that grows with how\noften the term appears in the document and with how rare the term is across\nthe whole collection. Rare terms, measured by inverse document frequency\n(IDF), count for more than common ones. Two parameters shape the formula. The parameter k1 controls term-frequency\nsaturation: after a term has appeared a few times, additional occurrences add\nless and less to the score. A typical value of k1 is between 1.2 and 2.0. The\nparameter b controls length normalization: with b set to 0.75, a long document\nneeds more matches than a short one to earn the same score, and with b set to\n0 document length is ignored. BM25 has no notion of meaning, so it cannot match synonyms or paraphrases.",
+            "score": 0.4814319908618927,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 10.545635029288889,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "bm25-keyword-search.md",
+            "text": "one to earn the same score, and with b set to\n0 document length is ignored. BM25 has no notion of meaning, so it cannot match synonyms or paraphrases. Its\nstrength is exact matching: identifiers, error codes, configuration variable\nnames, numbers and rare jargon are found reliably even when an embedding model\nwould blur them. Because dense and keyword retrieval fail in different ways,\ncombining them usually beats either one alone. SCRAG implements BM25 in-process with k1 = 1.5 and b = 0.75 over the same\nchunks that are stored in the vector index, and rebuilds the keyword index\nautomatically whenever the vector index changes.",
+            "score": 0.2908601462841034,
+            "fusion_score": 0.03200204813108039,
+            "keyword_score": 5.662901015828616,
+            "guardrail_score": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "question": "What does an API error response contain?",
+      "response": {
+        "query": "What does an API error response contain?",
+        "answer": "An API error response contains a JSON object with three fields:\n\n1.  **error**: A stable, machine-readable code (e.g., `llm_error` or `index_empty`).\n2.  **detail**: A message that is safe to show to clients.\n3.  **request_id**: An identifier that also appears in the `X-Request-ID` header and server logs, allowing operators to find full internal details of the failure.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer accurately reflects the context, correctly identifying the three fields (error, detail, request_id) and their descriptions, including the connection to the X-Request-ID header and server logs.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "An API error response contains a JSON object with three fields:\n\n1.  **error**: A stable, machine-readable code (e.g., `llm_error` or `index_empty`).\n2.  **detail**: A message that is safe to show to clients.\n3.  **request_id**: An identifier that also appears in the `X-Request-ID` header and server logs, allowing operators to find full internal details of the failure.",
+            "score": 1.0,
+            "explanation": "The candidate answer accurately reflects the context, correctly identifying the three fields (error, detail, request_id) and their descriptions, including the connection to the X-Request-ID header and server logs.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "scrag-api.md",
+            "text": "ree fields: error, a stable machine\nreadable code such as llm_error or index_empty; detail, a message that is safe\nto show to clients; and request_id. Every response carries an X-Request-ID\nheader with the same identifier, which also appears in the server logs, so an\noperator can find the full internal details of a failure without those\ndetails ever being sent to the client. When the server runs in demo mode it enforces a per-client rate limit, a\nglobal daily budget of language model queries, and limits on query length,\nand it disables ingestion for anonymous visitors. A rate-limited request\nreceives HTTP status 429 with the error code rate_limited, and a request made\nafter the daily budget is spent receives 429 with the code\ndemo_budget_exhausted.",
+            "score": 0.514761209487915,
+            "fusion_score": 0.03252247488101534,
+            "keyword_score": 4.967972342185889,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "scrag-api.md",
+            "text": "# SCRAG HTTP API SCRAG serves a versioned REST API under /api/v1, and keeps the original\nunversioned paths for backward compatibility. GET /health reports liveness,\nthe index size and whether a language model is configured. POST /query runs\nthe full self-correcting pipeline and returns the answer, the evaluation\nscore, the evaluation status, the number of attempts executed, the attempt\nthat was returned, the history of every attempt and the chunks that were used. POST /search runs retrieval only, without calling a language model, and\nreturns the ranked chunks. POST /ingest rebuilds or updates the index from the\nserver's configured documents directory. Errors share one JSON shape with three fields: error, a stable machine\nreadable code such as llm_error or index_empty; detail, a message that is safe\nto show to clients; and request_id.",
+            "score": 0.408133327960968,
+            "fusion_score": 0.03252247488101534,
+            "keyword_score": 5.861132786169768,
+            "guardrail_score": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "question": "Why is the sample knowledge base built into the container image?",
+      "response": {
+        "query": "Why is the sample knowledge base built into the container image?",
+        "answer": "The sample knowledge base is built into the container image at build time because the local disk on the free-tier hosting instances is wiped on every restart. This design ensures that nothing authoritative is stored on the volatile local disk, allowing the demo to answer questions about the sample knowledge base even when no database is available.",
+        "evaluation_score": 1.0,
+        "evaluation_explanation": "The candidate answer accurately reflects the context, correctly identifying that the local disk is wiped on restart and that building the knowledge base into the image allows the demo to function without a database.",
+        "evaluation_status": "passed",
+        "attempts": 1,
+        "best_attempt": 1,
+        "attempt_history": [
+          {
+            "number": 1,
+            "answer": "The sample knowledge base is built into the container image at build time because the local disk on the free-tier hosting instances is wiped on every restart. This design ensures that nothing authoritative is stored on the volatile local disk, allowing the demo to answer questions about the sample knowledge base even when no database is available.",
+            "score": 1.0,
+            "explanation": "The candidate answer accurately reflects the context, correctly identifying that the local disk is wiped on restart and that building the knowledge base into the image allows the demo to function without a database.",
+            "evaluation_status": "ok"
+          }
+        ],
+        "used_chunks": [
+          {
+            "source": "free-tier-deployment.md",
+            "text": "# Deploying on free tiers SCRAG's public demonstration is designed to run at zero infrastructure cost,\nwhich means designing around the limits of free hosting plans instead of\nassuming unlimited resources. The API runs on a free web service with 512 MB of memory and a tenth of a CPU\ncore. Such instances go to sleep after about 15 minutes without traffic and\ntake roughly a minute to wake up, so the web interface shows a waking-up\nmessage and retries instead of failing. Their local disk is wiped on every\nrestart, so nothing authoritative may be stored there. For that reason the\nsample knowledge base is built into the container image at build time, along\nwith the embedding model, and the demo can answer questions about it even\nwhen no database is available. Free language model tiers impose limits on requests and tokens per minute and\nper day.",
+            "score": 0.5783257484436035,
+            "fusion_score": 0.03278688524590164,
+            "keyword_score": 15.106701164829598,
+            "guardrail_score": 1.0
+          },
+          {
+            "source": "free-tier-deployment.md",
+            "text": "n answer questions about it even\nwhen no database is available. Free language model tiers impose limits on requests and tokens per minute and\nper day. A single SCRAG query can make several model calls, so the demo\nanswers its curated sample questions from recorded results that are clearly\nlabelled as cached, applies a global daily budget to live queries, and shows a\nclear message when the budget is spent. Running artificial keep-alive traffic\nto dodge sleep or pause policies is deliberately avoided. Free database plans may pause a project after a week of inactivity, so\nfeatures that depend on the database, such as uploads and conversation\nhistory, degrade gracefully while the core question answering keeps working.",
+            "score": 0.2406005710363388,
+            "fusion_score": 0.031024531024531024,
+            "keyword_score": 2.483403244236557,
+            "guardrail_score": 0.7
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -43,10 +44,21 @@ class RetrievedChunk(BaseModel):
     """A chunk plus the scores assigned to it during retrieval/guardrailing."""
 
     chunk: Chunk
-    score: float = Field(description="Retrieval similarity score (cosine).")
+    score: float = Field(description="Cosine similarity between query and chunk.")
+    fusion_score: float | None = Field(
+        default=None, description="Reciprocal Rank Fusion score (hybrid retrieval only)."
+    )
+    keyword_score: float | None = Field(
+        default=None, description="BM25 score, if the chunk matched any query keyword."
+    )
     guardrail_score: float | None = Field(
         default=None, description="Relevance score from the guardrail agent, if run."
     )
+
+    @property
+    def rank_key(self) -> float:
+        """The value retrieval ranked by: fused score in hybrid mode, else cosine."""
+        return self.fusion_score if self.fusion_score is not None else self.score
 
 
 class Attempt(BaseModel):
@@ -82,9 +94,29 @@ class PipelineResult(BaseModel):
 # --------------------------------------------------------------------------
 # API request/response schemas
 # --------------------------------------------------------------------------
+# What a query searches: the bundled sample corpus, the caller's session uploads,
+# or both (fused). "session" and "all" need an X-Session-Token.
+Scope = Literal["samples", "session", "all"]
+
+
 class QueryRequest(BaseModel):
-    query: str = Field(min_length=1, description="The user's question.")
+    query: str = Field(min_length=1, max_length=4000, description="The user's question.")
     top_k: int | None = Field(default=None, ge=1, le=100)
+    use_cache: bool = Field(
+        default=True,
+        description="Allow a cached answer (labelled as such). False forces a live run.",
+    )
+    scope: Scope = Field(default="samples", description="Which documents to search.")
+    conversation_id: UUID | None = Field(
+        default=None,
+        description="Append to this conversation (session only). Omit to start a new one.",
+    )
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=4000)
+    top_k: int | None = Field(default=None, ge=1, le=100)
+    scope: Scope = "samples"
 
 
 class ChunkView(BaseModel):
@@ -93,6 +125,8 @@ class ChunkView(BaseModel):
     source: str
     text: str
     score: float
+    fusion_score: float | None = None
+    keyword_score: float | None = None
     guardrail_score: float | None = None
 
 
@@ -106,6 +140,44 @@ class QueryResponse(BaseModel):
     best_attempt: int = Field(description="Number of the attempt whose answer was returned.")
     attempt_history: list[Attempt]
     used_chunks: list[ChunkView]
+    cached: bool = Field(
+        default=False, description="True if this is a stored result of an earlier real run."
+    )
+    cached_at: str | None = Field(default=None, description="When the cached run happened.")
+    cache_source: Literal["sample", "recent"] | None = None
+    scope: Scope = "samples"
+    conversation_id: UUID | None = Field(
+        default=None, description="Conversation this turn was saved to (session requests only)."
+    )
+    history_saved: bool | None = Field(
+        default=None,
+        description="Session requests: whether the turn was saved (false: quota or outage).",
+    )
+
+
+class AgentRunRequest(BaseModel):
+    task: str = Field(min_length=1, max_length=1000, description="What the agent should do.")
+    approved_tools: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Sensitive tools a human approved for this run (operator only on the demo).",
+    )
+
+
+class SearchResponse(BaseModel):
+    query: str
+    retrieval_mode: str
+    chunks: list[ChunkView]
+
+
+class DemoInfo(BaseModel):
+    demo_mode: bool
+    llm_configured: bool
+    model: str
+    retrieval_mode: str
+    sample_questions: list[str]
+    limits: dict[str, float | int]
+    budget: dict[str, int | str] | None
 
 
 class IngestRequest(BaseModel):
@@ -138,3 +210,7 @@ class HealthResponse(BaseModel):
     embedding_model: str
     vector_backend: str
     index_size: int
+    demo_mode: bool = False
+    # "disabled" (no database configured), else the last observed state. Health
+    # never queries the database itself (it must stay fast and I/O-free).
+    persistence: Literal["disabled", "unknown", "ok", "unavailable"] = "disabled"

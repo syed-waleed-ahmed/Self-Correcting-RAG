@@ -1,0 +1,6 @@
+# Keep sample documents, golden set and recorded demo answers byte-identical
+# across platforms: their content hashes must match between a Windows checkout
+# and the Linux image build (recorded answers are keyed by a corpus fingerprint).
+data/docs/** text eol=lf
+data/eval/** text eol=lf
+data/demo/** text eol=lf
