@@ -6,6 +6,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Phase 4: persistence and identity)
+
+- **Optional Postgres + pgvector persistence** (`SCRAG_DATABASE_URL`, extra
+  `postgres`). Without it the API behaves exactly as before.
+- **Anonymous sessions** (`POST/GET/DELETE /api/v1/sessions[/me]`):
+  - 256-bit tokens stored only as SHA-256 hashes;
+  - a fixed TTL (24 h by default); expired sessions are purged with all of
+    their data.
+- **Uploads** (`POST /api/v1/documents`, plus list, get and delete):
+  - TXT/MD/HTML/CSV/JSON/PDF/DOCX;
+  - text extracted at upload, with immediate 413/415/422 errors;
+  - only the text is stored, never the original bytes;
+  - per-session and global quotas;
+  - size checked before the multipart body is parsed.
+- **Durable job queue** in Postgres:
+  - claimed with `FOR UPDATE SKIP LOCKED` and a lease, and completion is
+    fenced, so a stale worker can't overwrite a result;
+  - exponential-backoff retries, permanent failures and failure hooks;
+  - jobs interrupted by a restart resume once their lease expires;
+  - the worker never polls an idle queue, so it creates no keep-alive traffic;
+  - `GET /api/v1/jobs/{id}`.
+- **Search over uploads:**
+  - pgvector cosine and Postgres full text, fused with RRF;
+  - `scope` on `/query` and `/search`: `samples`, `session` or `all`.
+- **Conversation history:**
+  - with a session, `/query` saves each turn and returns `conversation_id`;
+  - `GET/DELETE /api/v1/conversations[/{id}]`.
+- **Persistent daily demo budget.** It survives restarts, which used to reset
+  it after every free-tier sleep. It falls back to the in-process budget during
+  a database outage.
+- **JWT admin auth** (`SCRAG_ADMIN_SUBJECTS` with `SCRAG_AUTH_JWKS_URL` or
+  `SCRAG_AUTH_JWT_SECRET`, e.g. Supabase Auth). Algorithms are pinned by
+  configuration.
+- **`GET /api/v1/admin/stats`** (operator only).
+- **Migrations:** plain SQL, every one with a downgrade (ADR 0007), applied on
+  first use or with `scrag db status|upgrade|downgrade`.
+- **Tests:** 49 new ones (236 in total), including:
+  - 24 against a real Postgres with pgvector, as a new CI job;
+  - tenant-isolation, restart-survival and job-resume tests.
+
+### Changed
+
+- Sessions and uploads use `/api/v1` only. The older routes keep their
+  unversioned aliases.
+- `HealthResponse.persistence` reports `disabled`, `unknown`, `ok` or
+  `unavailable`. Health still does no I/O.
+
+
 ### Added (Phase 3: agents and tools)
 
 - **Bounded agent workflow** (`POST /api/v1/agent/run`, `scrag agent`):
@@ -44,6 +92,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - API https://scrag-api.onrender.com;
   - web UI https://scrag-web.onrender.com (a static site in the same Blueprint).
 - A GitHub Pages workflow also publishes the UI from `main`.
+- Phase 4 is live with a Neon Free Postgres database in Frankfurt
+  (`persistence: ok`), verified end to end on the deployment.
 
 ## [0.2.0] - 2026-11-10
 

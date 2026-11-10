@@ -1,25 +1,29 @@
-"""HTTP routes: /health, /demo, /search, /query, /ingest.
+"""HTTP routes: /health, /demo, /search, /query, /agent/*, /ingest.
 
 Mounted twice by the app factory: under ``/api/v1`` and at the original
-unversioned paths.
+unversioned paths. Session, upload and history routes live in
+:mod:`scrag.api.workspace` (``/api/v1`` only).
 """
 
 from __future__ import annotations
 
-import secrets
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from .. import __version__
 from ..container import Container
 from ..errors import (
+    DatabaseUnavailableError,
     ForbiddenError,
     IndexEmptyError,
     LLMNotConfiguredError,
+    PersistenceDisabledError,
     QueryTooLongError,
     ScragError,
+    SessionRequiredError,
 )
+from ..logging_config import get_logger
 from ..models import (
     AgentRunRequest,
     ChunkView,
@@ -32,85 +36,44 @@ from ..models import (
     QueryRequest,
     QueryResponse,
     RetrievedChunk,
+    Scope,
     SearchRequest,
     SearchResponse,
 )
 from ..orchestration import AgentRunResult
+from ..retriever import SupportsRetrieve
+from .deps import (
+    get_container,
+    operator_status,
+    optional_session,
+    rate_limit,
+    require_auth,
+    require_auth_unless_demo,
+)
 
+if TYPE_CHECKING:
+    from ..persistence import SessionRecord
+
+logger = get_logger(__name__)
 router = APIRouter()
 
 _ERRORS: dict[int | str, dict[str, Any]] = {
-    status: {"model": ErrorResponse} for status in (400, 401, 403, 409, 429, 500, 502, 503)
+    status: {"model": ErrorResponse} for status in (400, 401, 403, 404, 409, 429, 500, 502, 503)
 }
 
-
-def _container(request: Request) -> Container:
-    return request.app.state.container
-
-
-def _token_ok(request: Request) -> bool | None:
-    """True/False if a token is configured and presented correctly; None if no token is set."""
-    expected = request.app.state.settings.api_auth_token
-    if not expected:
-        return None
-    provided = request.headers.get("x-api-key")
-    if provided is None:
-        auth = request.headers.get("authorization", "")
-        if auth.lower().startswith("bearer "):
-            provided = auth[7:].strip()
-    if not provided:
-        return False
-    return secrets.compare_digest(provided.encode(), expected.encode())
-
-
-def require_auth(request: Request) -> None:
-    """Enforce the optional shared-secret token when one is configured.
-
-    Accepts ``Authorization: Bearer <token>`` or ``X-API-Key: <token>``.
-    Uses a constant-time comparison to avoid timing side channels.
-    """
-    if _token_ok(request) is False:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or missing API token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-def require_auth_unless_demo(request: Request) -> None:
-    """Public read endpoints on the demo; token-protected otherwise.
-
-    In demo mode, /search and /query are open to anonymous visitors (guarded by
-    the rate limit and daily budget) and the operator token only protects
-    state-changing endpoints such as /ingest.
-    """
-    if request.app.state.settings.demo_mode:
-        return
-    require_auth(request)
-
-
-def client_key(request: Request) -> str:
-    """Rate-limit key: the client IP, read from a trusted proxy header if configured."""
-    settings = request.app.state.settings
-    header = settings.forwarded_ip_header
-    if header:
-        value = request.headers.get(header, "")
-        hops = [part.strip() for part in value.split(",") if part.strip()]
-        if len(hops) >= settings.forwarded_ip_hops:
-            return hops[-settings.forwarded_ip_hops]
-    return request.client.host if request.client else "unknown"
+# Fields of a QueryResponse that describe one delivery, not the answer itself.
+_DELIVERY_FIELDS = {"cached", "cached_at", "cache_source", "conversation_id", "history_saved"}
 
 
 def _demo_limits(request: Request, query: str) -> None:
-    c = _container(request)
+    c = get_container(request)
     if not c.settings.demo_mode:
         return
     if len(query) > c.settings.demo_max_query_chars:
         raise QueryTooLongError(
             f"query of {len(query)} chars exceeds {c.settings.demo_max_query_chars}"
         )
-    if c.rate_limiter is not None:
-        c.rate_limiter.check(client_key(request))
+    rate_limit(request)
 
 
 def _top_k(c: Container, requested: int | None) -> int:
@@ -143,11 +106,78 @@ def _to_response(result: PipelineResult) -> QueryResponse:
     )
 
 
+def _session_for(request: Request, scope: Scope) -> tuple[SessionRecord | None, bool]:
+    """The caller's session (if a token was sent) and whether history is degraded.
+
+    Sample-corpus questions must keep working while the database is down (D2),
+    so for ``scope="samples"`` an unavailable database only means the turn
+    can't be saved; the other scopes need the database and fail with 503.
+    """
+    if get_container(request).persistence is None:
+        if scope != "samples":
+            raise PersistenceDisabledError()
+        return None, False
+    try:
+        return optional_session(request), False
+    except DatabaseUnavailableError:
+        if scope != "samples":
+            raise
+        logger.warning("Database unavailable: answering without saving history")
+        return None, True
+
+
+def _resolve_retriever(
+    request: Request, scope: Scope, session: SessionRecord | None
+) -> SupportsRetrieve | None:
+    """The retriever for ``scope`` (None: the default sample-corpus retriever).
+    Raises before any LLM work is spent."""
+    c = get_container(request)
+    if scope == "samples":
+        c.refresh_index()  # pick up an index another worker/process just ingested
+        if len(c.store) == 0:
+            raise IndexEmptyError()
+        return None
+    if session is None or c.persistence is None:
+        raise SessionRequiredError(f"scope={scope!r} needs a session")
+    samples: SupportsRetrieve | None = None
+    if scope == "all":
+        c.refresh_index()
+        samples = c.retriever
+    return c.persistence.retriever(session.id, samples=samples)
+
+
+def _record_turn(
+    c: Container, session: SessionRecord, body: QueryRequest, response: QueryResponse
+) -> QueryResponse:
+    """Save the question and answer to the session's history (best effort)."""
+    assert c.persistence is not None
+    metadata = {
+        "scope": response.scope,
+        "evaluation_status": response.evaluation_status,
+        "evaluation_score": response.evaluation_score,
+        "attempts": response.attempts,
+        "cached": response.cached,
+        "sources": sorted({chunk.source for chunk in response.used_chunks}),
+    }
+    try:
+        conversation_id = c.persistence.conversations.append_turn(
+            session.id, body.conversation_id, body.query, response.answer, metadata
+        )
+    except ScragError as exc:  # the answer is already paid for: still return it
+        logger.warning("Could not save conversation turn: %s", exc)
+        return response.model_copy(
+            update={"conversation_id": body.conversation_id, "history_saved": False}
+        )
+    return response.model_copy(
+        update={"conversation_id": conversation_id, "history_saved": conversation_id is not None}
+    )
+
+
 @router.get("/health", response_model=HealthResponse, tags=["ops"])
 def health(request: Request) -> HealthResponse:
-    # Liveness only: deliberately no index reload or other I/O here, so a slow
-    # reload can never fail a container health check.
-    c = _container(request)
+    # Liveness only: deliberately no index reload, database query or other I/O
+    # here, so a slow dependency can never fail a container health check.
+    c = get_container(request)
     return HealthResponse(
         status="ok",
         version=__version__,
@@ -156,13 +186,14 @@ def health(request: Request) -> HealthResponse:
         vector_backend=c.settings.vector_backend,
         index_size=len(c.store),
         demo_mode=c.settings.demo_mode,
+        persistence="disabled" if c.persistence is None else c.persistence.status,
     )
 
 
 @router.get("/demo", response_model=DemoInfo, tags=["ops"])
 def demo_info(request: Request) -> DemoInfo:
     """What a demo client needs: sample questions, limits and today's budget."""
-    c = _container(request)
+    c = get_container(request)
     s = c.settings
     return DemoInfo(
         demo_mode=s.demo_mode,
@@ -192,16 +223,15 @@ def demo_info(request: Request) -> DemoInfo:
 )
 def search(request: Request, body: SearchRequest) -> SearchResponse:
     """Retrieval only: ranked chunks for the query, without calling an LLM."""
-    c = _container(request)
+    c = get_container(request)
     query = body.query.strip()
     _demo_limits(request, query)
-    c.refresh_index()
-    if len(c.store) == 0:
-        raise IndexEmptyError()
-    results = c.retriever.retrieve(query, _top_k(c, body.top_k))
+    session, _ = _session_for(request, body.scope)
+    active = _resolve_retriever(request, body.scope, session) or c.retriever
+    results = active.retrieve(query, _top_k(c, body.top_k))
     return SearchResponse(
         query=query,
-        retrieval_mode=getattr(c.retriever, "mode", "dense"),
+        retrieval_mode=getattr(active, "mode", "dense"),
         chunks=[_chunk_view(rc) for rc in results],
     )
 
@@ -214,43 +244,55 @@ def search(request: Request, body: SearchRequest) -> SearchResponse:
     responses=_ERRORS,
 )
 def query(request: Request, body: QueryRequest) -> QueryResponse:
-    c = _container(request)
+    c = get_container(request)
     if c.pipeline is None:
         raise LLMNotConfiguredError()
     _demo_limits(request, body.query.strip())
-    c.refresh_index()  # pick up an index another worker/process just ingested
-    if len(c.store) == 0:
-        raise IndexEmptyError()
+    session, history_degraded = _session_for(request, body.scope)
+    retriever = _resolve_retriever(request, body.scope, session)
+    if body.conversation_id is not None and not history_degraded:
+        if session is None or c.persistence is None:
+            raise SessionRequiredError("conversation_id needs a session")
+        c.persistence.conversations.ensure(session.id, body.conversation_id)
     top_k = _top_k(c, body.top_k)
-    fingerprint = c.corpus_fingerprint()
 
-    if body.use_cache and c.answers is not None:
+    # Cached answers exist only for the shared sample corpus.
+    fingerprint = c.corpus_fingerprint() if body.scope == "samples" else None
+    response: QueryResponse | None = None
+    if fingerprint is not None and body.use_cache and c.answers is not None:
         hit = c.answers.get(body.query, top_k, fingerprint)
         if hit is not None:
-            return QueryResponse(
+            response = QueryResponse(
                 **{**hit.response, "query": body.query},
                 cached=True,
                 cached_at=hit.cached_at,
                 cache_source=hit.source,
             )
 
-    if c.budget is not None:
-        c.budget.consume()
-    try:
-        result = c.pipeline.run(body.query, top_k=top_k)
-    except ScragError:
-        # The visitor got no answer (e.g. the provider was down or rate limited
-        # us), so the run doesn't count against the daily budget.
+    if response is None:
         if c.budget is not None:
-            c.budget.refund()
-        raise
-    response = _to_response(result)
-    if c.answers is not None:
-        c.answers.put(
-            body.query,
-            top_k,
-            fingerprint,
-            response.model_dump(exclude={"cached", "cached_at", "cache_source"}),
+            c.budget.consume()
+        try:
+            result = c.pipeline.run(body.query, top_k=top_k, retriever=retriever)
+        except ScragError:
+            # The visitor got no answer (e.g. the provider was down or rate limited
+            # us), so the run doesn't count against the daily budget.
+            if c.budget is not None:
+                c.budget.refund()
+            raise
+        if c.budget is not None and result.attempts == 0:
+            c.budget.refund()  # nothing was retrieved, so no LLM call was made
+        response = _to_response(result).model_copy(update={"scope": body.scope})
+        if fingerprint is not None and c.answers is not None:
+            c.answers.put(
+                body.query, top_k, fingerprint, response.model_dump(exclude=_DELIVERY_FIELDS)
+            )
+
+    if session is not None:
+        response = _record_turn(c, session, body, response)
+    elif history_degraded:
+        response = response.model_copy(
+            update={"conversation_id": body.conversation_id, "history_saved": False}
         )
     return response
 
@@ -258,7 +300,7 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
 @router.get("/agent/tools", tags=["agent"])
 def agent_tools(request: Request) -> list[dict[str, Any]]:
     """The tool catalog: names, descriptions, permission levels and input schemas."""
-    tools = _container(request).tools
+    tools = get_container(request).tools
     return tools.specs() if tools else []
 
 
@@ -271,7 +313,7 @@ def agent_tools(request: Request) -> list[dict[str, Any]]:
 )
 def agent_run(request: Request, body: AgentRunRequest) -> AgentRunResult:
     """Plan -> run tools -> write -> verify, within hard step/LLM/time limits."""
-    c = _container(request)
+    c = get_container(request)
     if c.agent is None:
         raise LLMNotConfiguredError()
     task = body.task.strip()
@@ -279,7 +321,7 @@ def agent_run(request: Request, body: AgentRunRequest) -> AgentRunResult:
     c.refresh_index()
     # On the public demo only the operator may approve sensitive tools.
     approved = frozenset(body.approved_tools)
-    if c.settings.demo_mode and _token_ok(request) is not True:
+    if c.settings.demo_mode and operator_status(request) is not True:
         approved = frozenset()
     cost = c.settings.agent_budget_cost
     if c.budget is not None:
@@ -303,11 +345,12 @@ def agent_run(request: Request, body: AgentRunRequest) -> AgentRunResult:
     responses=_ERRORS,
 )
 def ingest_endpoint(request: Request, body: IngestRequest) -> IngestResponse:
-    # On the public demo, ingestion needs the operator token: a configured
-    # token that was presented (require_auth already rejected a wrong one).
-    if _container(request).settings.demo_mode and _token_ok(request) is not True:
+    # On the public demo, ingestion needs proven operator credentials (a wrong
+    # credential was already rejected with 401 by require_auth).
+    c = get_container(request)
+    if c.settings.demo_mode and operator_status(request) is not True:
         raise ForbiddenError("ingest attempted without operator token in demo mode")
-    stats = _container(request).run_ingest(reset=body.reset)
+    stats = c.run_ingest(reset=body.reset)
     return IngestResponse(
         documents=stats.documents,
         chunks=stats.chunks,

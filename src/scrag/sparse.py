@@ -13,7 +13,10 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Hashable, Iterable, Sequence
+from typing import TypeVar
+
+K = TypeVar("K", bound=Hashable)
 
 # Words joined by '.', '_' or '-' form one compound token (e.g. "x-request-id").
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*")
@@ -162,9 +165,9 @@ class BM25Index:
         return ranked[:n]
 
 
-def reciprocal_rank_fusion(rankings: Iterable[Sequence[int]], k: int = 60) -> dict[int, float]:
-    """Fuse ranked lists of row ids: each list adds ``1 / (k + rank)`` (rank from 1)."""
-    fused: dict[int, float] = defaultdict(float)
+def reciprocal_rank_fusion(rankings: Iterable[Sequence[K]], k: int = 60) -> dict[K, float]:
+    """Fuse ranked lists of ids: each list adds ``1 / (k + rank)`` (rank from 1)."""
+    fused: dict[K, float] = defaultdict(float)
     for ranking in rankings:
         for rank, idx in enumerate(ranking, start=1):
             fused[idx] += 1.0 / (k + rank)

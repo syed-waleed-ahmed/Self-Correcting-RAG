@@ -136,6 +136,46 @@ class Settings(BaseSettings):
     demo_max_query_chars: int = Field(default=300, ge=1)
     demo_top_k: int = Field(default=3, ge=1, le=20)
 
+    # --- Persistence: sessions, uploads, history, jobs (Phase 4) --------------------
+    # Unset (default) keeps the API stateless: sample-corpus Q&A works without a
+    # database, and the session/upload/history endpoints answer 503
+    # `persistence_disabled`. Any Postgres with pgvector works (Supabase: use the
+    # transaction pooler on port 6543; prepared statements are disabled for it).
+    database_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SCRAG_DATABASE_URL", "DATABASE_URL"),
+        repr=False,  # contains a password
+    )
+    db_pool_max: int = Field(default=4, ge=1, le=20)
+    db_connect_timeout_s: float = Field(default=5.0, gt=0, le=60)
+    # Retry a failed database connection at most this often (requests in between
+    # fail fast with 503 `database_unavailable` instead of piling up).
+    db_retry_interval_s: float = Field(default=30.0, ge=0, le=3600)
+    db_migrate_on_start: bool = True
+    # Anonymous sessions and everything in them are deleted after this long.
+    session_ttl_hours: float = Field(default=24.0, gt=0, le=24 * 30)
+    session_max_documents: int = Field(default=5, ge=1, le=1000)
+    upload_max_bytes: int = Field(default=1_000_000, gt=0, le=50_000_000)
+    document_max_chunks: int = Field(default=200, ge=1, le=10_000)
+    # Global cap across all sessions, to protect a free database's storage quota.
+    persistence_max_documents: int = Field(default=300, ge=1)
+    job_max_attempts: int = Field(default=3, ge=1, le=10)
+    job_lease_seconds: float = Field(default=120.0, gt=0, le=3600)
+    job_poll_interval_s: float = Field(default=30.0, gt=0, le=3600)
+    job_worker_enabled: bool = True
+    session_cleanup_interval_s: float = Field(default=3600.0, gt=0)
+
+    # --- Admin identity (JWT, e.g. Supabase Auth) ------------------------------------
+    # A bearer JWT whose `sub` is listed in `admin_subjects` gets operator rights,
+    # like the static api_auth_token. Configure a JWKS URL (asymmetric keys, e.g.
+    # https://<project>.supabase.co/auth/v1/.well-known/jwks.json) or a shared
+    # HS256 secret (legacy Supabase projects).
+    auth_jwks_url: str | None = None
+    auth_jwt_secret: str | None = Field(default=None, repr=False)
+    auth_issuer: str | None = None
+    auth_audience: str = "authenticated"
+    admin_subjects: list[str] = Field(default_factory=list)
+
     # --- Logging ----------------------------------------------------------
     log_level: str = "INFO"
     log_json: bool = False
@@ -152,6 +192,11 @@ class Settings(BaseSettings):
     def has_llm(self) -> bool:
         """Whether an LLM key is configured (agents require this)."""
         return bool(self.llm_api_key)
+
+    @property
+    def has_persistence(self) -> bool:
+        """Whether a database is configured (sessions, uploads, history, jobs)."""
+        return bool(self.database_url)
 
 
 @lru_cache

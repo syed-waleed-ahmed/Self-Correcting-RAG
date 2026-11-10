@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from typing import Protocol
 
 import numpy as np
 
@@ -10,6 +11,14 @@ from .embeddings import Embedder, embed_checked
 from .models import Chunk, RetrievedChunk
 from .sparse import BM25Index, reciprocal_rank_fusion
 from .vectorstore.base import VectorStore
+
+
+class SupportsRetrieve(Protocol):
+    """Anything that returns ranked chunks for a query."""
+
+    mode: str
+
+    def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]: ...
 
 
 class Retriever:

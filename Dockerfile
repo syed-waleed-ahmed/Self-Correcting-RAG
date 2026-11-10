@@ -18,7 +18,9 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN pip install --upgrade pip && pip install ".[onnx,docs]"
+# postgres/auth: sessions, uploads and history once SCRAG_DATABASE_URL is set,
+# and JWT admin auth once configured. Both stay inactive otherwise.
+RUN pip install --upgrade pip && pip install ".[onnx,docs,postgres,auth]"
 
 COPY data/docs ./data/docs
 COPY data/demo ./data/demo

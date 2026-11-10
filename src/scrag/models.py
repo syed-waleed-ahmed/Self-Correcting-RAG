@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -93,6 +94,11 @@ class PipelineResult(BaseModel):
 # --------------------------------------------------------------------------
 # API request/response schemas
 # --------------------------------------------------------------------------
+# What a query searches: the bundled sample corpus, the caller's session uploads,
+# or both (fused). "session" and "all" need an X-Session-Token.
+Scope = Literal["samples", "session", "all"]
+
+
 class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000, description="The user's question.")
     top_k: int | None = Field(default=None, ge=1, le=100)
@@ -100,11 +106,17 @@ class QueryRequest(BaseModel):
         default=True,
         description="Allow a cached answer (labelled as such). False forces a live run.",
     )
+    scope: Scope = Field(default="samples", description="Which documents to search.")
+    conversation_id: UUID | None = Field(
+        default=None,
+        description="Append to this conversation (session only). Omit to start a new one.",
+    )
 
 
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     top_k: int | None = Field(default=None, ge=1, le=100)
+    scope: Scope = "samples"
 
 
 class ChunkView(BaseModel):
@@ -133,6 +145,14 @@ class QueryResponse(BaseModel):
     )
     cached_at: str | None = Field(default=None, description="When the cached run happened.")
     cache_source: Literal["sample", "recent"] | None = None
+    scope: Scope = "samples"
+    conversation_id: UUID | None = Field(
+        default=None, description="Conversation this turn was saved to (session requests only)."
+    )
+    history_saved: bool | None = Field(
+        default=None,
+        description="Session requests: whether the turn was saved (false: quota or outage).",
+    )
 
 
 class AgentRunRequest(BaseModel):
@@ -191,3 +211,6 @@ class HealthResponse(BaseModel):
     vector_backend: str
     index_size: int
     demo_mode: bool = False
+    # "disabled" (no database configured), else the last observed state. Health
+    # never queries the database itself (it must stay fast and I/O-free).
+    persistence: Literal["disabled", "unknown", "ok", "unavailable"] = "disabled"

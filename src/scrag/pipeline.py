@@ -30,7 +30,7 @@ from .agents.guardrail import GuardrailAgent
 from .errors import InvalidQueryError, LLMError
 from .logging_config import get_logger
 from .models import Attempt, PipelineResult, ResultStatus, RetrievedChunk
-from .retriever import Retriever
+from .retriever import Retriever, SupportsRetrieve
 
 logger = get_logger(__name__)
 
@@ -59,12 +59,20 @@ class SelfCorrectingRAGPipeline:
         self.eval_threshold = eval_threshold
         self.max_self_correct_steps = max_self_correct_steps
 
-    def run(self, query: str, top_k: int | None = None) -> PipelineResult:
+    def run(
+        self,
+        query: str,
+        top_k: int | None = None,
+        *,
+        retriever: SupportsRetrieve | None = None,
+    ) -> PipelineResult:
+        """Answer ``query``. ``retriever`` overrides the default one for this run only
+        (e.g. a session-scoped retriever over a visitor's uploads)."""
         if not query or not query.strip():
             raise InvalidQueryError("query must not be empty")
 
         # 1. Retrieval
-        retrieved = self.retriever.retrieve(query, top_k or self.top_k)
+        retrieved = (retriever or self.retriever).retrieve(query, top_k or self.top_k)
 
         # 2. Guardrail filtering (with fallback to raw retrieval)
         filtered = self.guardrail.filter(query, retrieved)

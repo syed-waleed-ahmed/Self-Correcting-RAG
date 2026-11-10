@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from .agents import EvaluatorAgent, GeneratorAgent, GuardrailAgent
+from .auth import JWTVerifier, build_verifier
 from .chunking import Chunker
 from .config import Settings
-from .demo import AnswerCache, DailyBudget, RateLimiter, corpus_fingerprint
+from .demo import AnswerCache, Budget, DailyBudget, RateLimiter, corpus_fingerprint
 from .embeddings import Embedder, create_embedder
 from .errors import IngestInProgressError
 from .ingest import IngestStats, ingest
@@ -35,6 +37,9 @@ from .retriever import HybridRetriever, Retriever
 from .vectorstore import create_vector_store
 from .vectorstore.base import VectorStore
 
+if TYPE_CHECKING:
+    from .persistence import Database, Persistence
+
 logger = get_logger(__name__)
 
 
@@ -50,7 +55,9 @@ class Container:
     tools: ToolRegistry | None = None
     answers: AnswerCache | None = None
     rate_limiter: RateLimiter | None = None  # demo mode only
-    budget: DailyBudget | None = None  # demo mode only
+    budget: Budget | None = None  # demo mode only (persisted when a database is configured)
+    persistence: Persistence | None = None  # None when no database is configured
+    jwt_verifier: JWTVerifier | None = None  # None unless JWT admin auth is configured
     # One ingestion at a time per process; concurrent requests get a 409.
     ingest_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _fingerprint: tuple[int, str] | None = field(default=None, repr=False)
@@ -128,11 +135,12 @@ def build_container(
     embedder: Embedder | None = None,
     store: VectorStore | None = None,
     chat_client: ChatClient | None = None,
+    database: Database | None = None,
 ) -> Container:
     """Construct a fully wired :class:`Container`.
 
     The optional overrides exist so tests (and alternative deployments) can inject
-    fakes without monkeypatching.
+    fakes without monkeypatching. Building never connects to the database.
     """
     embedder = embedder or create_embedder(settings)
     store = store or create_vector_store(settings)
@@ -182,6 +190,21 @@ def build_container(
     except (OSError, ValueError, KeyError) as exc:
         logger.warning("Could not load sample answers from %s: %s", settings.samples_path, exc)
 
+    persistence: Persistence | None = None
+    if database is not None or settings.has_persistence:
+        from .persistence import PersistentDailyBudget, build_persistence
+
+        persistence = build_persistence(
+            settings, embedder=embedder, chunker=chunker, database=database
+        )
+    budget: Budget | None = None
+    if settings.demo_mode:
+        budget = (
+            PersistentDailyBudget(persistence.db, settings.demo_daily_query_budget)
+            if persistence is not None
+            else DailyBudget(settings.demo_daily_query_budget)
+        )
+
     container = Container(
         settings=settings,
         embedder=embedder,
@@ -196,7 +219,9 @@ def build_container(
             if settings.demo_mode
             else None
         ),
-        budget=DailyBudget(settings.demo_daily_query_budget) if settings.demo_mode else None,
+        budget=budget,
+        persistence=persistence,
+        jwt_verifier=build_verifier(settings),
     )
     # Sensitive, state-changing tool: registered everywhere (so the approval
     # flow is visible) but disabled on the public demo.

@@ -26,7 +26,7 @@ fastembed image variant (decision D1 in `TARGET_ARCHITECTURE.md`).
 | Frontend | Vercel Hobby, `*.vercel.app` | Static/edge only; no secrets in client code |
 | API | Render Free Web Service (Docker), Frankfurt | One instance; sleeps after 15 minutes; ~1 minute cold start |
 | Sample knowledge | NumPy index baked into the image | Works without the database (D2) |
-| Database, vectors, files | Supabase Free | Connect through the pooler `:6543` (IPv4); pauses after 7 idle days |
+| Database, vectors | Neon Free (ADR 0008); Supabase Free also works | Pooled connection string with `sslmode=require`; scales to zero when idle |
 | LLM | Groq free tier | Server-side key only |
 
 ## 3. Environment variables
@@ -41,7 +41,7 @@ fastembed image variant (decision D1 in `TARGET_ARCHITECTURE.md`).
 | `SCRAG_API_AUTH_TOKEN` | Set for admin endpoints (Phase 4 replaces it with real auth) |
 | `SCRAG_LOG_JSON` | `true` |
 | `SCRAG_TOP_K` | `3` in demo mode |
-| `DATABASE_URL` | Phase 4. Supabase pooler URI, transaction mode, `sslmode=require` |
+| `SCRAG_DATABASE_URL` | Phase 4. Neon pooled connection string (or Supabase's transaction pooler on port 6543), `sslmode=require`. Secret: set in the Render dashboard only |
 | `SCRAG_DEMO_MODE` | Phase 2b. Enables quotas and caching |
 
 **Frontend (Vercel):** `NEXT_PUBLIC_API_BASE_URL=https://<service>.onrender.com`,
@@ -58,11 +58,11 @@ These can't be automated from the repository. Each needs a person to sign in.
      type, Frankfurt region).
    - Set the variables from section 3.
    - Note whether a card was required (risk R5).
-3. **Supabase** (Phase 4):
-   - Create a Free project in an EU region.
-   - Enable the `vector` extension.
-   - Copy the **transaction pooler** connection string.
-   - Do not enable add-ons.
+3. **Neon** (Phase 4; see `docs/deployment.md`):
+   - Create a Free project in an EU region (Frankfurt).
+   - Copy the **pooled** connection string. The API enables `vector` and
+     creates its schema itself on first use.
+   - Do not add a card or upgrade.
 4. **Vercel:**
    - Import the repo with the `web/` root directory (Phase 2b).
    - Set `NEXT_PUBLIC_API_BASE_URL`.
@@ -89,6 +89,7 @@ Run these against the live API with `scripts/smoke.py --base-url ...`:
 
 | Date | Commit | Target | Smoke test result | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-10 | `c8ef430` (branch `feat/phase-4-persistence`) | Render Free + Neon Free (Frankfurt) | Phase 4 live check: `/health` reported `persistence: ok` after the worker migrated on startup. Session 0.2 s; upload 0.2 s, ingestion job 7.9 s; a correct session-scoped answer (evaluation 1.0) in 2.4 s with history saved; a second session got 404 for the document and conversation and an empty list; admin stats returned 401 without the token; a deleted session's token returned 401. `scripts/smoke.py`: ALL PASSED | The Blueprint branch moved from `feat/phase-2-retrieval-eval` to `feat/phase-4-persistence` (move it to `main` after the merges). `SCRAG_DATABASE_URL` was set by the owner in the Render dashboard |
 | 2026-11-10 | `1e6cdbb` (branch `feat/phase-2-retrieval-eval`) | Render Free: https://scrag-api.onrender.com + https://scrag-web.onrender.com | `scripts/smoke.py --live-query`: ALL PASSED (the sample query was served from the recorded run). One uncached live query passed evaluation in 2.5 s | The first deploy failed 5 smoke checks: the operator token locked out anonymous reads. Fixed in `1e6cdbb`. The UI was verified in Chrome against the live API |
 
 ## 7. Rollback

@@ -30,6 +30,10 @@ services:
         value: x-forwarded-for
       - key: SCRAG_FORWARDED_IP_HOPS
         value: "1"
+      # Optional Postgres+pgvector URL (free tier, see docs/deployment.md) for
+      # sessions, uploads and history. Unset: the API runs without a database.
+      - key: SCRAG_DATABASE_URL
+        sync: false
 
   # The web UI as a free Render static site (served from a CDN, never sleeps).
   # GitHub Pages (.github/workflows/pages.yml) publishes the same UI from main.
