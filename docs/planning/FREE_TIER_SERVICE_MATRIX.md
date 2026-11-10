@@ -116,7 +116,7 @@ tiers change without notice: re-verify before each deployment (see
 
 - **Terms (V, effective 2026-03-23):** making API clients available to users in
   the EEA, Switzerland or the UK requires Paid Services. A public demo URL is
-  reachable from the EU, and the owner appears to be EU-based. In the EEA, UK
+  reachable from the EU, and the demo is operated from the EU (Frankfurt). In the EEA, UK
   and Switzerland, the paid data terms apply even to free use.
 - **Free models (V):**
   - the Gemini Flash and Flash-Lite families

@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Project (open-source readiness)
+
+- Community files:
+  - `SECURITY.md`, with private vulnerability reporting, scope and rules for
+    testing the live demo safely;
+  - `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1);
+  - issue forms and a PR template;
+  - Dependabot for pip, npm and GitHub Actions.
+- `CONTRIBUTING.md` rewritten: extras, the Postgres tests, web UI development,
+  migrations and free-tier constraints.
+- `docker-compose.yml` gains an optional local Postgres (`--profile db`).
+- `docs/deployment.md` adds "Deploy your own copy" for forks.
+- The planning docs describe the live deployment and no longer read as notes
+  for a single owner.
+
+
 ### Added (Phase 4: persistence and identity)
 
 - **Optional Postgres + pgvector persistence** (`SCRAG_DATABASE_URL`, extra

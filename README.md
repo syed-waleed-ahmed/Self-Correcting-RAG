@@ -5,10 +5,13 @@ retrieves context, guardrails it for relevance, generates a grounded answer, and
 then evaluates and self-corrects its own output - exposed as a REST API, a CLI
 and a web UI.
 
-**Live demo:** https://scrag-web.onrender.com. The API is at
-https://scrag-api.onrender.com (docs at `/docs`). Both run on Render's free
-tier. The API sleeps after 15 idle minutes, so the first request can take about
-a minute.
+**Live demo:** https://scrag-web.onrender.com (mirror:
+https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/). The API is at
+https://scrag-api.onrender.com, with interactive docs at
+[`/docs`](https://scrag-api.onrender.com/docs). Everything runs on free tiers
+(Render, Neon Postgres, Groq). The API sleeps after 15 idle minutes, so the
+first request can take about a minute. Uploads and history are deleted after 24
+hours; please don't upload personal data.
 
 ![The live SCRAG demo answering a sample question: the answer is labelled as a
 recorded run, and the self-check panel shows a passed evaluation](docs/images/live-demo.jpg)
@@ -20,7 +23,7 @@ recorded runs; "Run live" executes the pipeline.*
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
-![Tests](https://img.shields.io/badge/tests-236-brightgreen)
+[![Live demo](https://img.shields.io/badge/demo-live-blue)](https://scrag-web.onrender.com)
 
 ---
 
@@ -37,6 +40,7 @@ recorded runs; "Run live" executes the pipeline.*
 - [Project structure](#project-structure)
 - [Development](#development)
 - [Scaling notes](#scaling-notes)
+- [Contributing](#contributing)
 - [License](#license)
 
 ## Why this exists
@@ -324,6 +328,8 @@ Highlights:
 - Optional API auth: set `SCRAG_API_AUTH_TOKEN` to require a shared secret on
   `/query` and `/ingest` (`Authorization: Bearer ...` or `X-API-Key: ...`),
   compared in constant time. `/health` stays open for probes.
+- Found a vulnerability? Report it privately, as described in
+  [SECURITY.md](SECURITY.md), not in a public issue.
 - Restrict CORS in production via `SCRAG_CORS_ALLOW_ORIGINS` (defaults to all
   origins for easy local use).
 - No arbitrary file access: ingestion only reads the server-configured
@@ -407,6 +413,21 @@ platform.
 - The LLM layer is stateless and provider-agnostic, so the API scales
   horizontally behind a load balancer; the vector index is loaded per worker or
   externalized via FAISS.
+
+## Contributing
+
+Contributions are welcome: bug reports, documentation fixes, new retrieval or
+embedding backends, evaluation data, and UI work.
+- Start with [CONTRIBUTING.md](CONTRIBUTING.md): setup, the checks CI runs, and
+  conventions.
+- Read the architecture decisions in [docs/decisions/](docs/decisions/) and the
+  roadmap in [docs/planning/](docs/planning/IMPLEMENTATION_ROADMAP.md).
+- Taking part means following the [code of conduct](CODE_OF_CONDUCT.md).
+- Report security issues privately ([SECURITY.md](SECURITY.md)).
+
+To run your own copy of the demo, follow
+[docs/deployment.md](docs/deployment.md#deploy-your-own-copy). It takes a
+fork, a free Render account and a free Groq key.
 
 ## License
 

@@ -2,6 +2,9 @@
 #
 # Deploy: Render Dashboard -> New -> Blueprint -> select this repository.
 # Render asks for the values marked `sync: false`. See docs/deployment.md.
+#
+# Forking? Change SCRAG_CORS_ALLOW_ORIGINS and NEXT_PUBLIC_API_BASE_URL below to
+# your own URLs (docs/deployment.md, "Deploy your own copy").
 services:
   - type: web
     name: scrag-api

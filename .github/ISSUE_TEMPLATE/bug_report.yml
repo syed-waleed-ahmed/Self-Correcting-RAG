@@ -1,0 +1,68 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Security problems go through private reporting, not
+        issues**: see [SECURITY.md](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The observed behaviour, including the error response or traceback.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest command, request or config that shows the problem.
+      placeholder: |
+        1. pip install -e ".[onnx,docs]"
+        2. scrag ingest
+        3. curl -X POST localhost:8000/api/v1/query -d '{"query": "..."}'
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      options:
+        - Local install (CLI or API)
+        - Docker image
+        - Public demo (scrag-api / scrag-web on Render)
+        - Web UI (web/)
+        - CI or tests
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: "`pip show self-correcting-rag`, `git rev-parse --short HEAD`, or `/api/v1/health`."
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, Python version, installed extras, LLM provider and model"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log lines. Include the `X-Request-ID` if you have one.
+      render: text
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed API keys, tokens, session tokens and database URLs from everything above.
+          required: true

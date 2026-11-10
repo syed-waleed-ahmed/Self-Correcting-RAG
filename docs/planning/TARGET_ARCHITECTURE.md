@@ -122,8 +122,8 @@ Uploads and history are the only features that need Supabase.
 - Document Analysis and Data Analysis (CSV/JSON via a pure-Python, allow-listed
   toolset) come later.
 - Coding/Python-execution agents are **out of scope for the public demo**: no
-  sandbox fits 512 MB and 0.1 CPU safely, and the master prompt forbids exposing
-  arbitrary execution to visitors. They can exist behind an admin flag for local
+  sandbox fits 512 MB and 0.1 CPU safely, and the project's safety rules forbid
+  exposing arbitrary execution to visitors. They can exist behind an admin flag for local
   use.
 
 **D8. Streaming uses Server-Sent Events.**
@@ -134,8 +134,8 @@ Uploads and history are the only features that need Supabase.
 
 **D9. Demo identity is anonymous sessions.**
 - A signed, short-lived session token is issued by the API.
-- Supabase Auth (JWT verification) is added for the owner/admin and for
-  optional sign-in.
+- JWT verification (e.g. Supabase Auth) is added for the maintainer/admin and
+  for optional sign-in.
 - Full multi-organization RBAC is designed into the schema (`org_id` on every
   row) but not exposed in the demo UI until it has real users.
 
