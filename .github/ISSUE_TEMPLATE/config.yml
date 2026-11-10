@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/security/advisories/new
+    about: Report privately. Please don't open a public issue (see SECURITY.md).
+  - name: Try the live demo
+    url: https://scrag-web.onrender.com
+    about: The free-tier demo. The API wakes up after about a minute if it was idle.

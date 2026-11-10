@@ -4,11 +4,19 @@ Goal: EUR 0 per month, with no billing mechanism able to charge silently.
 
 ## Current state (2026-11-10)
 
-**Nothing is deployed, and the project incurs no infrastructure cost.**
-- Local development uses the owner's machine.
-- CI runs on free public-repository GitHub Actions runners.
-- LLM calls use the owner's Groq free-tier key. During this audit a few hundred
-  tokens were used for verification calls (a model listing and small smoke tests).
+**The demo is live on free plans only. No paid plan, instance type or add-on is
+in use.**
+- **Render Free:** the API (Docker) and the web UI (static site), from
+  `render.yaml`.
+- **Neon Free:** Postgres + pgvector in Frankfurt, created through Vercel's
+  Neon integration, which showed "no credit card required" for this plan.
+- **GitHub:** Pages (the UI mirror) and Actions (CI) are free for public
+  repositories.
+- **Groq free tier:** the maintainer's key, server-side only. The demo caps
+  live runs at 30 per day.
+
+Card status per service isn't recorded here. The monthly checklist below
+covers it (risk R5).
 
 ## Billing exposure by service
 
@@ -23,7 +31,7 @@ Goal: EUR 0 per month, with no billing mechanism able to charge silently.
 | GitHub Actions | Not for public repos (V) | A private repo beyond $12 of compute with a payment method | Keep the repo public; no payment method required |
 | Gemini API | Not used | Paid Services would be required for EU-facing use | Excluded from the design |
 
-## ZERO_COST_MODE (planned for Phase 2b)
+## ZERO_COST_MODE (planned, not implemented)
 
 This is a design only; it is not implemented yet. `SCRAG_ZERO_COST_MODE=true`
 (the default) will make the application refuse configurations that can incur
@@ -57,3 +65,4 @@ Run this before every deployment and on the first of every month:
 | Date | Checked by | All services at 0? | Notes |
 | --- | --- | --- | --- |
 | 2026-11-10 | Phase 0 audit | n/a (nothing deployed) | Terms verified from official docs; see matrix |
+| 2026-11-10 | Phase 4 deploy | Plans verified Free at creation; billing pages not yet checked | Render services on the Free instance type; Neon on Free. First monthly check due 2026-12-01 |

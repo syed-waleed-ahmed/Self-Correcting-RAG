@@ -1,8 +1,11 @@
 # Planning documents
 
-These are the Phase 0 outputs of the roadmap toward a hosted, free-tier SCRAG
-platform. They are working documents: each is dated and should be updated as
-phases land.
+These documents started as the Phase 0 audit and plan for turning SCRAG into
+a hosted platform that runs entirely on free tiers. They were written while the
+project was being built, and they stay public for transparency: what was
+measured, what was decided and why, what is deferred, and how cost is kept at
+zero. Each is dated and is updated as phases land. The decisions that were
+implemented are also recorded as ADRs in [../decisions/](../decisions/).
 
 | Document | Purpose |
 | --- | --- |

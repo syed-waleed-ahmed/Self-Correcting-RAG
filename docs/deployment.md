@@ -1,10 +1,12 @@
 # Deploying the free-tier demo
 
-The demo has two parts:
-- **The web UI** is served by **GitHub Pages**. It's free for public repos,
-  needs no extra account, and deploys automatically.
-- **The API** runs on **Render Free**. It needs no database: the sample
-  knowledge base and the embedding model are built into the image.
+The demo has three parts, all on free tiers:
+- **The web UI** is a Render static site, with a GitHub Pages mirror. Both are
+  built from `web/`.
+- **The API** runs on **Render Free**. The sample knowledge base and the
+  embedding model are built into the image, so it works without a database.
+- **An optional Postgres database** (Neon Free) adds sessions, uploads and
+  history.
 
 The expected cost is EUR 0; see `docs/planning/COST_ZERO_VERIFICATION.md` for
 what could change that. Never add a payment method to any of these services.
@@ -13,8 +15,25 @@ what could change that. Never add a payment method to any of these services.
 | --- | --- | --- |
 | Web UI | https://scrag-web.onrender.com | **Live** (Render static site from the Blueprint) |
 | API | https://scrag-api.onrender.com | **Live** (Render Free, deployed 2026-11-10) |
-| Web UI (mirror) | https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ | Publishes from `main` once PRs #1/#2 are merged |
+| Web UI (mirror) | https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ | **Live** (GitHub Pages, published from `main`) |
 | Database | Neon Free, Frankfurt (created via the Vercel Neon integration) | **Live** (2026-11-10): sessions, uploads and history enabled |
+
+## Deploy your own copy
+
+Everything below works from a fork, with free accounts only. Before creating
+the Blueprint, make three edits in your fork:
+1. **`render.yaml`, `SCRAG_CORS_ALLOW_ORIGINS`:** replace the two origins with
+   your own web UI origins, e.g. `https://<you>.github.io` and
+   `https://<your-web-service>.onrender.com`.
+2. **`render.yaml`, `NEXT_PUBLIC_API_BASE_URL`** (under `scrag-web`): set your
+   API's URL. Render service names are global, so if `scrag-api` is taken,
+   Render adds a suffix, and you must use the URL it shows.
+3. **GitHub Pages (optional):** set the repository variable
+   `SCRAG_API_BASE_URL` to the same API URL, and set Settings, then Pages, then
+   Source to "GitHub Actions".
+
+Then follow sections 1 to 3. Nothing in the code is tied to this repository's
+URLs.
 
 ## 1. API on Render (one time, about 5 minutes)
 

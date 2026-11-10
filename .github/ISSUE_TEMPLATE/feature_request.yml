@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the use case before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Retrieval and ranking
+        - Agents, tools and self-correction
+        - Evaluation
+        - API or CLI
+        - Persistence (sessions, uploads, jobs)
+        - Web UI
+        - Deployment and free-tier operation
+        - Documentation
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      description: The public demo runs entirely on free tiers (see docs/planning/COST_ZERO_VERIFICATION.md).
+      options:
+        - label: This works without paid services, or is clearly optional.

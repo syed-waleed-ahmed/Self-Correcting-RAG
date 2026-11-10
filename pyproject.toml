@@ -10,9 +10,16 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Syed Waleed Ahmed" }]
-keywords = ["rag", "llm", "retrieval", "agents", "fastapi", "groq", "openai"]
+keywords = ["rag", "llm", "retrieval", "agents", "self-correction", "hybrid-search", "pgvector", "fastapi", "groq"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -75,6 +82,10 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG"
 Repository = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG"
+Documentation = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG#readme"
+Issues = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/issues"
+Changelog = "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/blob/main/CHANGELOG.md"
+Demo = "https://scrag-web.onrender.com"
 
 [project.scripts]
 scrag = "scrag.cli:app"

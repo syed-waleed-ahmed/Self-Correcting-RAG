@@ -1,3 +1,11 @@
+# Local run of the deployment image.
+#
+#   docker compose up --build
+#
+# With a local Postgres (pgvector) for sessions, uploads and history:
+#
+#   SCRAG_DATABASE_URL=postgresql://postgres:scrag@db:5432/scrag \
+#     docker compose --profile db up --build
 services:
   api:
     build: .
@@ -8,13 +16,27 @@ services:
       # Provide your key via a local .env file (see .env.example).
       GROQ_API_KEY: ${GROQ_API_KEY:?set GROQ_API_KEY in your environment or .env}
       SCRAG_LOG_JSON: "true"
+      # Empty (the default) runs without a database.
+      SCRAG_DATABASE_URL: ${SCRAG_DATABASE_URL:-}
     volumes:
-      # Persist the vector index and mount your document corpus.
+      # Mount your document corpus; the index persists in a named volume.
       - ./data/docs:/app/data/docs:ro
       - scrag_index:/app/data/index
-      - hf_cache:/app/.cache/huggingface
     restart: unless-stopped
+
+  db:
+    image: pgvector/pgvector:pg17
+    profiles: ["db"]
+    environment:
+      POSTGRES_PASSWORD: scrag  # local development only
+      POSTGRES_DB: scrag
+    volumes:
+      - scrag_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 10
 
 volumes:
   scrag_index:
-  hf_cache:
+  scrag_pg:

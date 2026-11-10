@@ -12,14 +12,13 @@ A phase is not "done" while any acceptance criterion is unverified.
 
 ## Recommended changes to the original phase order
 
-The master prompt deploys in Phase 8. Two changes are recommended, and both are
-the **owner's decision**:
+The original brief deployed in Phase 8. Two changes were recommended and
+adopted (see "Decisions taken" below):
 
 1. **Deploy a walking skeleton right after Phase 2** (Phase 2b below). The
    free-tier constraints shape almost every later decision: 512 MB, cold starts,
    Groq quotas and Supabase pausing. They should be discovered on real
-   infrastructure early, not in Phase 8. The second planning reply in the master
-   prompt makes the same recommendation.
+   infrastructure early, not in Phase 8.
 2. **Build a minimal evaluation harness in Phase 2, before hybrid retrieval.**
    Without a golden set, "hybrid + rerank is better" would be an assumption.
    Phase 6 extends the harness; it doesn't introduce it.
@@ -129,9 +128,9 @@ Delivered:
 - `scripts/smoke.py`;
 - CI container job (512 MB / 0.1 CPU) and web build job.
 
-**Remaining:** creating the Render and Vercel projects. These need the owner's
-accounts; follow `docs/deployment.md`. After that, run the smoke test against
-the live URL and record the evidence.
+**Deployed** on 2026-11-10: Render Free for the API and a static site, with
+GitHub Pages as a mirror (Vercel wasn't needed). The smoke test passes against
+the live URL; the evidence is in `DEPLOYMENT_PLAN.md`, section 6.
 
 Original scope:
 
@@ -286,20 +285,19 @@ Scope:
 
 ## Decisions taken (2026-11-10)
 
-The owner asked for the work to proceed without further questions, so the
-recommended options were adopted:
+The maintainer adopted the recommended options:
 
 1. **Reordering:** a walking skeleton right after Phase 2, and the eval harness
    inside Phase 2.
 2. **fastembed and the bundled index:** D1 and D2, now ADRs 0001 and 0002.
 3. **Groq-only LLM routing:** D4, now ADR 0004.
-4. **Render card requirement:** still unknown until the account is created.
-   `docs/deployment.md` says not to add a payment method.
+4. **Render card requirement:** Render didn't ask for a payment method when the
+   services were created. `docs/deployment.md` says never to add one.
 5. **Reduced agent roster** (D7) for Phase 3.
 
 The original questions follow.
 
-## Open decisions for the owner (original)
+## Original open questions (all decided above)
 
 1. Approve the reordering (Phase 2b and the eval harness in Phase 2)?
 2. Approve fastembed as the deployment embedder (D1) and the bundled sample index
