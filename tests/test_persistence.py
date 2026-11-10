@@ -116,7 +116,8 @@ def test_deleting_a_session_deletes_all_of_its_data(settings, database):
     p.conversations.append_turn(session.id, None, "q?", "a.", {})
     assert _count(database, "chunks") == 1 and _count(database, "messages") == 2
 
-    assert p.sessions.delete(session.id) is True
+    deleted = p.sessions.delete(session.id)
+    assert deleted is True
     for table in ("documents", "chunks", "conversations", "messages", "jobs"):
         assert _count(database, table) == 0, table
 
@@ -363,7 +364,8 @@ def test_api_session_upload_query_and_history(settings, database):
         info = client.get("/api/v1/sessions/me", headers=me).json()
         assert info["usage"] == {"documents": 1, "conversations": 1, "messages": 4}
 
-        assert client.delete("/api/v1/sessions/me", headers=me).status_code == 204
+        deleted = client.delete("/api/v1/sessions/me", headers=me)
+        assert deleted.status_code == 204
         gone = client.get("/api/v1/sessions/me", headers=me)
         assert gone.status_code == 401 and gone.json()["error"] == "session_required"
 

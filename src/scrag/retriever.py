@@ -18,7 +18,8 @@ class SupportsRetrieve(Protocol):
 
     mode: str
 
-    def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]: ...
+    def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]:
+        """Return up to ``top_k`` chunks for ``query``, best first."""
 
 
 class Retriever:

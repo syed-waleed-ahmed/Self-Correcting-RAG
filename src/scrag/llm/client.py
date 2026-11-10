@@ -52,7 +52,6 @@ class ChatClient(Protocol):
         json_mode: bool = False,
     ) -> str:
         """Return the assistant message content for a single-turn prompt."""
-        ...
 
 
 class OpenAICompatibleClient:

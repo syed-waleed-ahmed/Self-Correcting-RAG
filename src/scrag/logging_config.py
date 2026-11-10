@@ -17,7 +17,7 @@ import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-_CONFIGURED = False
+_HANDLER_NAME = "scrag"
 
 request_id_var: ContextVar[str] = ContextVar("scrag_request_id", default="-")
 
@@ -54,11 +54,12 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging(level: str = "INFO", *, json_output: bool = False) -> None:
     """Configure the root logger. Idempotent within a process."""
-    global _CONFIGURED
-    if _CONFIGURED:
+    root = logging.getLogger()
+    if any(h.get_name() == _HANDLER_NAME for h in root.handlers):
         return
 
     handler = logging.StreamHandler(stream=sys.stderr)
+    handler.set_name(_HANDLER_NAME)
     handler.addFilter(RequestIdFilter())
     if json_output:
         handler.setFormatter(JsonFormatter())
@@ -70,11 +71,9 @@ def configure_logging(level: str = "INFO", *, json_output: bool = False) -> None
             )
         )
 
-    root = logging.getLogger()
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level.upper())
-    _CONFIGURED = True
 
 
 def get_logger(name: str) -> logging.Logger:

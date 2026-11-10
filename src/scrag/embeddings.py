@@ -33,11 +33,9 @@ class Embedder(Protocol):
     @property
     def dim(self) -> int:
         """Dimensionality of the produced vectors."""
-        ...
 
     def embed(self, texts: list[str]) -> np.ndarray:
         """Return a ``(len(texts), dim)`` float32 array."""
-        ...
 
 
 def embed_checked(embedder: Embedder, texts: list[str], expected_dim: int) -> np.ndarray:
