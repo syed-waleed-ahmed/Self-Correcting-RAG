@@ -8,7 +8,7 @@ Last reviewed: 2026-11-10.
 
 | ID | Risk | L | I | Mitigation | Status |
 | --- | --- | --- | --- | --- | --- |
-| R1 | The API (torch + sentence-transformers) doesn't fit Render Free's 512 MB, so the container is OOM-killed | M | H | ADR 0001: fastembed (211 MB peak vs 428 MB for torch, measured); CI container job enforces peak < 450 MB under `--memory=512m` | Mitigated (pending first live deploy) |
+| R1 | The API (torch + sentence-transformers) doesn't fit Render Free's 512 MB, so the container is OOM-killed | L | H | ADR 0001: fastembed. The real image peaked at 210 MB under `--memory=512m --cpus=0.1` in CI (run 42735463057); the CI container job enforces peak < 450 MB on every PR | Mitigated (verified in CI) |
 | R2 | Supabase Free pauses after 7 idle days and resuming is manual, so uploads and history go down | H | M | D2: bundled sample index keeps core Q&A working; health endpoint reports DB status; documented manual resume; **no keep-alive pings** (forbidden) | Open |
 | R3 | Groq quotas (per model, per org) are exhausted by demo traffic or abuse | H | H | Implemented: per-IP token bucket, global daily budget (30), recorded sample answers, TTL answer cache, batched guardrail, `top_k=3`, quota-reached UX. Still open: automatic fallback to a second Groq model | Partly mitigated |
 | R4 | Groq retires a configured model with little notice (happened 2026-08-16 and 2026-09-14) | H | H | Model IDs in config; startup `GET /models` probe that warns; fallback model list; re-check before each deploy | Mitigated for the default (Phase 1); probe Open |

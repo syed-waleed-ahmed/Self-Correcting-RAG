@@ -76,9 +76,19 @@ Windows.
 | fastembed (ONNX) | 211 MB | 3.0 ms | identical (cosine 1.00000 on every text) |
 | sentence-transformers (torch) | 428 MB | 12.3 ms | reference |
 
-This is why the deployment image uses fastembed (decision D1). The CI
-`container` job also measures the real image on Linux, under a 512 MB / 0.1 CPU
-limit, and reports peak memory in the job summary.
+This is why the deployment image uses fastembed (decision D1).
+
+The CI `container` job runs the real deployment image on Linux under the free
+tier's limits (`--memory=512m --cpus=0.1`). It smoke-tests the image, sends 15
+retrieval requests, and reads the cgroup counters. First recorded run
+(2026-11-10, GitHub Actions run 42735463057):
+
+| Metric | Value |
+| --- | --- |
+| Peak memory | 210 MB of 512 MB |
+| Memory after load | 196 MB |
+| OOM killed | false |
+| Image size | 296 MB |
 
 ## Recorded demo answers
 

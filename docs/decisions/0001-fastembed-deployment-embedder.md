@@ -21,6 +21,10 @@ was 1.00000. See `docs/evaluation.md`.
   fastembed when installed, otherwise sentence-transformers).
 - The Docker image installs only the `onnx` extra, with no torch.
 
+**Verified (2026-11-10, CI run 42735463057).** The deployment image ran under
+`--memory=512m --cpus=0.1` with a peak of 210 MB and was not OOM-killed. The
+image is 296 MB.
+
 **Consequences.**
 - Existing indexes stay valid, because the vectors are identical.
 - torch remains available through the `local` extra.
