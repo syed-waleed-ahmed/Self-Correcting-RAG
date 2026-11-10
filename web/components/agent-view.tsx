@@ -12,6 +12,7 @@ const EXAMPLES = [
   "What RRF constant does hybrid retrieval use, and what is that constant multiplied by 3?",
   "What does the guardrail agent check, and what does the evaluator agent check?",
   "How is a sanitized API error response structured, and why is the request ID included?",
+  "Which three sample documents have the most chunks, and how many chunks does each have?",
 ];
 
 const STAGE_LABEL: Record<TraceEvent["stage"], string> = {
@@ -63,7 +64,8 @@ export function AgentView() {
     <div className="space-y-6">
       <Card title="Agent workspace" aside={<Pill>uses 2 of today&apos;s live runs</Pill>}>
         <p className="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-          A bounded agent: a planner picks tools (document search, a safe calculator), the tools run in parallel, a
+          A bounded agent: a planner picks tools (document search, a safe calculator, read-only SQL over a catalog of
+          the knowledge base), the tools run in parallel, a
           writer answers only from the tools&apos; evidence with citations, and the evaluator verifies the answer,
           allowing one correction. Hard limits apply to steps, LLM calls and time, and retrieved text is treated as
           data, never as instructions.

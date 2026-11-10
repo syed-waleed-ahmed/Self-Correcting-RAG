@@ -4,9 +4,11 @@
   single-instance free tier; a shared store is needed once there are several
   instances).
 * :class:`DailyBudget` - global cap on live LLM pipeline runs per UTC day, so the
-  provider's free quota can't be drained by one visitor. It resets on restart
-  (it is a quota guard, not billing); with a database configured,
+  provider's free quota can't be drained. It resets on restart (it is a quota
+  guard, not billing); with a database configured,
   :class:`scrag.persistence.PersistentDailyBudget` keeps the count across restarts.
+* :class:`ClientQuota` - each client's share of that daily budget, so one
+  visitor can't spend all of it.
 * :class:`AnswerCache` - recorded sample answers plus a small TTL cache of recent
   live answers. Cached responses are always labelled as cached with their
   timestamp; they are real past executions, never synthesized.
@@ -26,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from .errors import DemoBudgetExhaustedError, RateLimitedError
+from .errors import ClientQuotaExceededError, DemoBudgetExhaustedError, RateLimitedError
 from .logging_config import get_logger
 from .models import Chunk
 
@@ -125,6 +127,60 @@ class DailyBudget:
         tomorrow = datetime.combine(self._day + timedelta(days=1), datetime.min.time())
         delta = tomorrow.replace(tzinfo=timezone.utc) - self._now()
         return max(1, int(delta.total_seconds()))
+
+
+class ClientQuota:
+    """At most ``limit`` live runs per client per UTC day.
+
+    The global :class:`DailyBudget` protects the provider quota; this protects
+    the other visitors, so one client (IP) can't spend the whole day's budget.
+    In-process, like :class:`RateLimiter`: correct for the single-instance demo.
+    Memory is bounded: past ``max_clients`` keys, the lightest users are
+    forgotten (which only ever gives them a fresh share, never blocks anyone).
+    """
+
+    def __init__(self, limit: int, *, now: Any = None, max_clients: int = 10_000) -> None:
+        self.limit = limit
+        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._day = self._now().date()
+        self._used: dict[str, int] = {}
+        self._max_clients = max_clients
+        self._lock = threading.Lock()
+
+    def _roll(self) -> None:
+        today = self._now().date()
+        if today != self._day:
+            self._day = today
+            self._used.clear()
+
+    def consume(self, key: str, units: int = 1) -> None:
+        """Charge ``units`` to ``key`` or raise :class:`ClientQuotaExceededError`."""
+        with self._lock:
+            self._roll()
+            used = self._used.get(key, 0)
+            if used + units > self.limit:
+                tomorrow = datetime.combine(self._day + timedelta(days=1), datetime.min.time())
+                wait = (tomorrow.replace(tzinfo=timezone.utc) - self._now()).total_seconds()
+                raise ClientQuotaExceededError(
+                    f"client used {used} of {self.limit} live runs today",
+                    retry_after=max(1, int(wait)),
+                )
+            if key not in self._used and len(self._used) >= self._max_clients:
+                lightest = sorted(self._used, key=self._used.__getitem__)
+                for stale in lightest[: self._max_clients // 2]:
+                    del self._used[stale]
+            self._used[key] = used + units
+
+    def refund(self, key: str, units: int = 1) -> None:
+        """Give units back (the run produced no answer)."""
+        with self._lock:
+            if key in self._used:
+                self._used[key] = max(0, self._used[key] - units)
+
+    def remaining(self, key: str) -> int:
+        with self._lock:
+            self._roll()
+            return max(0, self.limit - self._used.get(key, 0))
 
 
 @dataclass(frozen=True)

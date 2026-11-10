@@ -35,7 +35,7 @@ adopted (see "Decisions taken" below):
 | 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
 | 5 | Frontend | **Live** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
 | 6 | Observability and evaluation | **Done** (2026-11-10): metrics, cost per answer, optional tracing, 60-question golden set, answer-quality comparison |
-| 7 | Security hardening, quotas, load tests | Not started |
+| 7 | Security hardening, quotas, load tests | **Done** (2026-11-10): threat model, sniffed uploads, read-only SQL and SSRF-safe fetch tools, layered quotas, measured load tests |
 | 8 | Full free-tier deployment | Not started |
 | 9 | Live demo verification | Not started |
 | 10 | GitHub showcase release | Not started |
@@ -306,9 +306,37 @@ Scope:
 - Baseline vs hybrid vs self-correcting vs multi-agent comparisons.
 - Only real numbers are published.
 
-## Phase 7: Security and quotas
+## Phase 7: Security and quotas (done 2026-11-10)
 
-Scope:
+Delivered (ADR 0011, [threat model](../threat-model.md)):
+- **Threat model:** STRIDE per trust boundary; every mitigation names its test,
+  every residual risk is stated.
+- **Uploads:** the bytes must match the extension; DOCX zip bombs are refused
+  from the ZIP directory; NUL bytes in text, deep JSON and oversized CSV fields
+  fail as 422s (they were 500s); a PDF extraction time budget.
+- **`web_fetch`:** off unless hosts are allow-listed. HTTPS on port 443 only;
+  non-public addresses refused after DNS, and the connection pinned to the
+  checked address; redirects re-checked at every hop.
+- **`sql_query`:** read-only SQL on a private in-memory catalog, under an
+  authorizer, `query_only` and a time budget.
+- **Quotas:**
+  - a flood guard before routing, which caps floods against endpoints that
+    have no limit of their own (measured);
+  - each visitor's daily share of the live budget;
+  - a global cap on live sessions;
+  - a body-size cap on every request.
+- **`pip-audit` in CI** was already in place. New: a read-only CI token, and
+  Dependabot for the Docker base image.
+- **Error sanitization review:**
+  - secrets out of `repr(settings)`;
+  - `no-store` and hardening headers on API responses;
+  - the parser crashes above fixed;
+  - an unbounded `round()` in the calculator fixed.
+- **Load tests:** Locust profiles with an LLM stand-in, measured locally and in
+  CI against the real image at the free plan's 0.1 CPU and 512 MB
+  ([load-testing.md](../load-testing.md)).
+
+Original scope:
 - Threat model.
 - Upload validation (MIME sniffing, size and page limits, zip-bomb guards).
 - SSRF-safe HTTP tool (allow-list, no private IP ranges).

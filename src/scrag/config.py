@@ -36,6 +36,7 @@ class Settings(BaseSettings):
         # Accept SCRAG_LLM_API_KEY, GROQ_API_KEY or OPENAI_API_KEY.
         validation_alias=AliasChoices("SCRAG_LLM_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"),
         description="API key for the OpenAI-compatible LLM provider.",
+        repr=False,  # secrets never appear in repr(settings) or logs of it
     )
     llm_base_url: str = Field(
         default="https://api.groq.com/openai/v1",
@@ -104,6 +105,13 @@ class Settings(BaseSettings):
     # Live demo budget units charged per agent run (it makes more LLM calls
     # than a single /query).
     agent_budget_cost: int = Field(default=2, ge=1, le=10)
+    # Read-only SQL over an in-memory catalog of the sample corpus (sql_query).
+    sql_tool_enabled: bool = True
+    # web_fetch: HTTPS GETs to these hosts only ("docs.example.com", or
+    # "*.example.com" for its subdomains). Empty (default) disables the tool.
+    http_tool_allowed_hosts: list[str] = Field(default_factory=list)
+    http_tool_max_bytes: int = Field(default=200_000, ge=1_000, le=5_000_000)
+    http_tool_timeout_s: float = Field(default=8.0, gt=0, le=60)
 
     # --- API / server -----------------------------------------------------
     api_host: str = "0.0.0.0"
@@ -112,7 +120,10 @@ class Settings(BaseSettings):
     # Optional shared-secret auth for the write/query endpoints. When set,
     # /query and /ingest require it via `Authorization: Bearer <token>` or the
     # `X-API-Key` header. Unset (default) leaves the API open.
-    api_auth_token: str | None = None
+    api_auth_token: str | None = Field(default=None, repr=False)
+    # Largest accepted request body outside uploads (JSON requests are tiny; this
+    # stops a client from making the server buffer megabytes before validation).
+    max_request_bytes: int = Field(default=65_536, ge=1_024, le=10_000_000)
 
     # Client IP for rate limiting. Behind a reverse proxy, name the header it
     # sets (e.g. "x-forwarded-for") and how many trusted proxy hops append to it;
@@ -132,7 +143,17 @@ class Settings(BaseSettings):
     demo_mode: bool = False
     demo_rate_limit_per_minute: float = Field(default=6.0, gt=0)
     demo_rate_limit_burst: int = Field(default=3, ge=1)
+    # A coarse per-client cap on *all* requests (health checks exempt), refused
+    # before routing. The limit above covers only the expensive endpoints; this
+    # one also caps the rest, including database-backed reads, against floods
+    # (measured in docs/load-testing.md). Generous for any human visitor.
+    demo_flood_limit_per_minute: float = Field(default=120.0, gt=0)
+    demo_flood_burst: int = Field(default=60, ge=1)
     demo_daily_query_budget: int = Field(default=30, ge=0)
+    # Each client (IP) may spend at most this many of those live runs per UTC day,
+    # so one visitor can't use up the whole demo's budget (an agent run costs
+    # agent_budget_cost). In-process, like the rate limiter.
+    demo_client_daily_runs: int = Field(default=10, ge=1)
     demo_max_query_chars: int = Field(default=300, ge=1)
     # 5, not 3: on the 60-question golden set, hybrid hit@3 misses 2 questions
     # that hit@5 retrieves, and a live comparison showed the pipeline then answers
@@ -160,8 +181,9 @@ class Settings(BaseSettings):
     session_max_documents: int = Field(default=5, ge=1, le=1000)
     upload_max_bytes: int = Field(default=1_000_000, gt=0, le=50_000_000)
     document_max_chunks: int = Field(default=200, ge=1, le=10_000)
-    # Global cap across all sessions, to protect a free database's storage quota.
+    # Global caps across all sessions, to protect a free database's storage quota.
     persistence_max_documents: int = Field(default=300, ge=1)
+    persistence_max_sessions: int = Field(default=1_000, ge=1)
     job_max_attempts: int = Field(default=3, ge=1, le=10)
     job_lease_seconds: float = Field(default=120.0, gt=0, le=3600)
     job_poll_interval_s: float = Field(default=30.0, gt=0, le=3600)

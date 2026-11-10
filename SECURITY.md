@@ -64,6 +64,10 @@ no maintained release branches.
 ## How the project handles security
 
 These describe the design that reports are measured against:
+- [the threat model](docs/threat-model.md): trust boundaries, threats,
+  mitigations with their tests, and residual risks
+- [ADR 0011](docs/decisions/0011-security-hardening.md) (agent tools, uploads,
+  layered quotas)
 - [README: Security](README.md#security)
 - [ADR 0008](docs/decisions/0008-postgres-persistence-design.md) (session
   isolation, token hashing, upload limits)

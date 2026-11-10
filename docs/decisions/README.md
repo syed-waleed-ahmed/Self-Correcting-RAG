@@ -16,3 +16,4 @@ recorded here once implemented.
 | [0008](0008-postgres-persistence-design.md) | Persistence design: Neon Free, anonymous sessions, durable jobs, no idle traffic | Accepted, implemented in Phase 4 |
 | [0009](0009-sse-stage-streaming.md) | Stream progress per stage over SSE, not answer tokens | Accepted, implemented in Phase 5 |
 | [0010](0010-observability.md) | Observability: Prometheus metrics, optional OpenTelemetry, real cost per answer | Accepted, implemented in Phase 6 |
+| [0011](0011-security-hardening.md) | Security hardening: narrow read-only tools, layered quotas, measured limits | Accepted, implemented in Phase 7 |

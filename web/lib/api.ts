@@ -98,7 +98,8 @@ export interface DemoInfo {
   retrieval_mode: string;
   sample_questions: string[];
   limits: Record<string, number>;
-  budget: { limit: number; remaining: number; resets_at: string } | null;
+  // client_remaining: this visitor's own share of today's live runs (demo only).
+  budget: { limit: number; remaining: number; resets_at: string; client_remaining?: number } | null;
   features?: { sessions?: boolean; agent?: boolean; streaming?: boolean };
 }
 

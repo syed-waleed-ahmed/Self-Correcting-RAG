@@ -49,6 +49,19 @@ class DemoBudgetExhaustedError(ScragError):
         self.headers = {"Retry-After": str(retry_after)}
 
 
+class ClientQuotaExceededError(ScragError):
+    code = "client_quota_exceeded"
+    http_status = 429
+    public_message = (
+        "You've used your share of today's live AI queries on the demo. Sample questions "
+        "still work from recorded results; your share resets at midnight UTC."
+    )
+
+    def __init__(self, message: str | None = None, *, retry_after: int = 3600) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": str(retry_after)}
+
+
 class ForbiddenError(ScragError):
     code = "forbidden"
     http_status = 403
@@ -115,6 +128,16 @@ class StorageFullError(ScragError):
     code = "storage_full"
     http_status = 503
     public_message = "The demo's document storage is full. Please try again later."
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": "3600"}
+
+
+class SessionCapacityError(ScragError):
+    code = "session_capacity"
+    http_status = 503
+    public_message = "The demo has reached its limit of active sessions. Please try again later."
 
     def __init__(self, message: str | None = None) -> None:
         super().__init__(message)

@@ -11,7 +11,10 @@ Every tool declares a pydantic input model, a permission level and a timeout.
 5. returns a JSON-safe output and an audit record (:class:`ToolCall`) whether
    the call succeeded or not. Tool exceptions never escape.
 
-There is deliberately no shell, filesystem, network or code-execution tool.
+There is deliberately no shell, filesystem or code-execution tool. Network and
+database access exist only as the narrow, read-only tools in
+:mod:`.web_fetch` (allow-listed HTTPS hosts) and :mod:`.sql_tool` (a private
+in-memory catalog), each with its own guards.
 """
 
 from __future__ import annotations
@@ -179,13 +182,23 @@ _BIN_OPS: dict[type, Callable[[Any, Any], Any]] = {
     ast.Pow: operator.pow,
 }
 _UNARY_OPS: dict[type, Callable[[Any], Any]] = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+
+def _round(value: Any, ndigits: Any = None) -> Any:
+    # round(5, -10**9) makes Python compute 10**(10**9): minutes of CPU in a
+    # thread the tool timeout can't stop. Real calculations never need more.
+    if ndigits is not None and (not isinstance(ndigits, int) or abs(ndigits) > 100):
+        raise ValueError("round() digits must be an integer from -100 to 100")
+    return round(value, ndigits)
+
+
 _FUNCS: dict[str, Callable[..., Any]] = {
     "sqrt": math.sqrt,
     "log": math.log,
     "log10": math.log10,
     "exp": math.exp,
     "abs": abs,
-    "round": round,
+    "round": _round,
     "min": min,
     "max": max,
 }

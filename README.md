@@ -105,10 +105,12 @@ without touching orchestration logic.
     search, the self-correcting pipeline and the agent, paced to provider
     limits.
 - Formats: TXT, Markdown, HTML, CSV, JSON, and PDF/DOCX with the `docs` extra,
-  with size and page limits.
+  with size and page limits; uploads are content-sniffed and zip-bomb checked.
 - Bounded agent workflow (`POST /agent/run`, `scrag agent`):
-  - a planner chooses tools from a typed, permissioned registry (document
-    search, a safe calculator, and an approval-gated re-index);
+  - a planner chooses tools from a typed, permissioned registry: document
+    search, a safe calculator, read-only SQL over a catalog of the corpus, an
+    optional SSRF-safe web fetch (allow-listed hosts only), and an
+    approval-gated re-index;
   - tools run in parallel with timeouts and audit records;
   - a writer answers from delimited, untrusted evidence with citations;
   - the evaluator verifies the answer and can trigger one correction;
@@ -128,9 +130,13 @@ without touching orchestration logic.
     tokens per model, and agent, tool, cache and job outcomes;
   - every answer reports its real token usage and per-stage timings;
   - optional OpenTelemetry tracing (console or OTLP) is off by default.
-- Public demo mode: per-client rate limits, a global daily budget of live LLM
-  queries, recorded sample answers (labelled as cached), a retrieval-only
-  `/search` endpoint, and a Next.js web UI (`web/`).
+- Public demo mode: per-client rate limits and a flood guard, each visitor's
+  daily share of a global budget of live LLM queries, recorded sample answers
+  (labelled as cached), a retrieval-only `/search` endpoint, and a Next.js web
+  UI (`web/`).
+- Load tests (`loadtests/`, Locust with an LLM stand-in) with recorded results,
+  run in CI against the real image at the free plan's CPU and memory
+  ([docs/load-testing.md](docs/load-testing.md)).
 - Web UI (`web/`, static export), with four pages:
   - **Ask:** answers stream live stage by stage (retrieval, guardrail, each
     attempt and its grade), with search over the sample docs, your uploads, or
@@ -343,11 +349,14 @@ Highlights:
 | `SCRAG_GUARDRAIL_MODE`         | `batch`                          | `batch` (one call) or `per_chunk`       |
 | `SCRAG_DEMO_MODE`              | `false`                          | Rate limits, daily budget, query caps, operator-only ingest |
 | `SCRAG_DEMO_DAILY_QUERY_BUDGET`| `30`                             | Live pipeline runs per UTC day (demo)   |
+| `SCRAG_DEMO_CLIENT_DAILY_RUNS` | `10`                             | Each client's share of that budget (demo) |
 | `SCRAG_GUARDRAIL_THRESHOLD`    | `0.3`                            | Min relevance to keep a chunk           |
 | `SCRAG_GUARDRAIL_MAX_TOKENS`   | `8`                              | Guardrail reply budget (use 256 for reasoning models such as `openai/gpt-oss-20b`) |
 | `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer |
 | `SCRAG_MAX_SELF_CORRECT_STEPS` | `2`                              | Max generate/evaluate attempts (1-10)   |
 | `SCRAG_API_AUTH_TOKEN`         | (unset)                          | If set, `/query` + `/ingest` require it |
+| `SCRAG_MAX_REQUEST_BYTES`      | `65536`                          | Largest request body outside uploads    |
+| `SCRAG_HTTP_TOOL_ALLOWED_HOSTS`| `[]`                             | Hosts the agent's `web_fetch` may GET over HTTPS (empty = tool off) |
 | `SCRAG_DATABASE_URL`           | (unset)                          | Postgres + pgvector for sessions, uploads, history (also `DATABASE_URL`) |
 | `SCRAG_SESSION_TTL_HOURS`      | `24`                             | Sessions and their data are deleted after this |
 | `SCRAG_SESSION_MAX_DOCUMENTS`  | `5`                              | Uploads per session (`SCRAG_UPLOAD_MAX_BYTES` caps each, default 1 MB) |
@@ -363,12 +372,30 @@ Highlights:
   `/query` and `/ingest` (`Authorization: Bearer ...` or `X-API-Key: ...`),
   compared in constant time. `/health` stays open for probes.
 - Found a vulnerability? Report it privately, as described in
-  [SECURITY.md](SECURITY.md), not in a public issue.
+  [SECURITY.md](SECURITY.md), not in a public issue. The
+  [threat model](docs/threat-model.md) lists every control and its residual
+  risk; [ADR 0011](docs/decisions/0011-security-hardening.md) explains the
+  design.
 - Restrict CORS in production via `SCRAG_CORS_ALLOW_ORIGINS` (defaults to all
   origins for easy local use).
 - No arbitrary file access: ingestion only reads the server-configured
-  `docs_dir`. Uploads are size-checked before the body is parsed, their names
-  are reduced to a safe base name, and only extracted text is stored.
+  `docs_dir`. Uploads are size-checked before the body is parsed, their bytes
+  must match their extension, DOCX containers are checked for zip bombs before
+  inflating, their names are reduced to a safe base name, and only extracted
+  text is stored. Every other request body is capped too.
+- Agent tools are read-only by construction:
+  - SQL runs on a private in-memory catalog under an authorizer that allows
+    only SELECT over two tables, with a time budget;
+  - web fetching is off unless hosts are allow-listed, and never reaches
+    private or internal addresses (checked after DNS and pinned for the
+    connection, so DNS rebinding can't get around it).
+- Layered quotas on the demo: a flood guard before routing, per-client rate
+  limits, each visitor's daily share, a global daily budget, and caps on
+  stored documents and live sessions.
+- API responses carry `Cache-Control: no-store`, `nosniff`, a deny-all CSP and
+  `X-Frame-Options: DENY`; secrets never appear in `repr(settings)` or logs.
+- Questions, uploads and answers are sent to the configured LLM provider
+  (Groq on the demo). The UI says so.
 - Sessions: tokens are 256-bit random values stored only as SHA-256 hashes;
   every query is scoped by session, and other sessions' data answers 404.
 - Optional JWT admin auth (e.g. Supabase Auth): algorithms come from the
@@ -418,10 +445,12 @@ src/scrag/
 scripts/verify.py      single command for every CI quality gate
 scripts/smoke.py       smoke test for a running API (local or deployed)
 scripts/record_samples.py  record real runs for the demo's sample questions
+loadtests/             Locust profiles, an LLM stand-in and a results summarizer
 web/                   Next.js + Tailwind UI (static export): ask, documents, agent, about
 data/eval/             golden dataset for `scrag eval`
 data/demo/             recorded sample answers served by the demo
-docs/                  evaluation, deployment, decisions (ADRs), planning
+docs/                  evaluation, deployment, threat model, load testing,
+                       decisions (ADRs), planning
 tests/                 pytest suite (fakes; no network or torch)
 ```
 
@@ -435,12 +464,21 @@ python scripts/verify.py --fix  # apply ruff fixes/formatting first
 ```
 
 CI also runs CodeQL and a dependency audit (`pip-audit` on what the Docker
-image ships, `npm audit` on the web UI).
+image ships, `npm audit` on the web UI). Load tests (no API key needed; an LLM
+stand-in replaces the provider) are described in
+[docs/load-testing.md](docs/load-testing.md):
 
-The 236 tests run in seconds with no network or API key. Two groups skip
+```bash
+pip install -e ".[load]"
+python loadtests/mock_llm.py &   # OpenAI-compatible stand-in on :8090
+SCRAG_LLM_API_KEY=mock SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 scrag serve &
+locust -f loadtests/locustfile.py --headless -u 20 -r 5 -t 2m --host http://127.0.0.1:8000 Visitor
+```
+
+The 334 tests run in seconds with no network or API key. Two groups skip
 unless their dependency is present, and CI runs both:
 - the 9 FAISS tests need `faiss-cpu`;
-- the 24 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
+- the 27 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
   Postgres with pgvector, e.g.
   `docker run -e POSTGRES_PASSWORD=pg -p 5432:5432 pgvector/pgvector:pg17` and
   `TEST_DATABASE_URL=postgresql://postgres:pg@localhost:5432/postgres`.

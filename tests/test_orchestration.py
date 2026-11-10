@@ -284,9 +284,17 @@ def test_agent_api_run_and_tool_catalog(settings, sample_chunks):
     with client:
         tools = {t["name"]: t for t in client.get("/api/v1/agent/tools").json()}
         body = client.post("/api/v1/agent/run", json={"task": "What does a guardrail do?"}).json()
-    assert set(tools) == {"document_search", "calculator", "reindex_documents"}
+    assert set(tools) == {
+        "document_search",
+        "calculator",
+        "sql_query",
+        "web_fetch",
+        "reindex_documents",
+    }
     assert tools["reindex_documents"]["permission"] == "sensitive"
     assert tools["reindex_documents"]["enabled"] is False  # disabled on the demo
+    assert tools["sql_query"]["enabled"] is True
+    assert tools["web_fetch"]["enabled"] is False  # no allow-listed hosts configured
     assert body["status"] == "completed"
     assert body["answer"] == "It filters [S1]."
     assert container.budget.status()["remaining"] == settings.demo_daily_query_budget - 2

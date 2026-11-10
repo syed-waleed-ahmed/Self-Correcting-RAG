@@ -1,0 +1,85 @@
+name: Load test
+
+# Runs the Locust profiles in loadtests/ against the real deployment image,
+# limited to the CPU and memory of Render's free plan (0.1 CPU, 512 MB), with
+# an LLM stand-in (loadtests/mock_llm.py): never a real provider. Results go to
+# the job summary and an artifact; docs/load-testing.md records them.
+#
+# Manual, plus pull requests that change the load tests or the image.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "loadtests/**"
+      - ".github/workflows/load-test.yml"
+      - "Dockerfile"
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Locust
+        run: pip install "locust>=2.37"
+
+      - name: Build the deployment image
+        run: docker build -t scrag:load .
+
+      - name: Start the LLM stand-in (300 ms per call)
+        run: nohup python loadtests/mock_llm.py --host 127.0.0.1 --port 8090 --latency-ms 300 > mock.log 2>&1 &
+
+      - name: Run the profiles
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          echo "## Load test: deployment image, LLM stand-in at 300 ms per call" >> "$GITHUB_STEP_SUMMARY"
+          echo "Runner: $(nproc) CPUs, $(free -g | awk '/Mem:/ {print $2}') GB RAM" >> "$GITHUB_STEP_SUMMARY"
+
+          # profile <name> <cpus> <users> <user classes> -- <extra docker args>
+          profile() {
+            local name=$1 cpus=$2 users=$3 classes=$4; shift 5
+            docker run -d --name "$name" --network host --cpus "$cpus" --memory 512m \
+              -e PORT=8000 -e SCRAG_LLM_API_KEY=mock -e SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 \
+              -e SCRAG_LOG_LEVEL=WARNING "$@" scrag:load > /dev/null
+            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 > /dev/null
+            # shellcheck disable=SC2086
+            locust -f loadtests/locustfile.py --headless -u "$users" -r "$users" -t 2m \
+              --host http://127.0.0.1:8000 --csv "out/$name" --loglevel WARNING --only-summary \
+              $classes > "out/$name.log" 2>&1 || true
+            local memory peak oom
+            memory=$(docker stats --no-stream --format '{{.MemUsage}}' "$name")
+            peak=$(docker exec "$name" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "")
+            [[ "$peak" =~ ^[0-9]+$ ]] && peak="$((peak / 1048576)) MiB" || peak="n/a"
+            oom=$(docker inspect -f '{{.State.OOMKilled}}' "$name")
+            {
+              echo
+              echo "### $name: $cpus CPU, 512 MB, $users users ($classes)"
+              echo "Memory: $memory at the end, peak $peak. OOM-killed: $oom."
+              echo
+              python loadtests/summarize.py "out/${name}_stats.csv" "out/${name}_failures.csv"
+            } >> "$GITHUB_STEP_SUMMARY"
+            docker rm -f "$name" > /dev/null
+          }
+
+          profile capacity-1cpu 1.0 20 "Visitor" -- -e SCRAG_DEMO_MODE=false
+          profile capacity-free-tier 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false
+          profile abuse-free-tier 0.1 11 "DemoVisitor Flooder" -- \
+            -e SCRAG_DEMO_MODE=true -e SCRAG_DEMO_DAILY_QUERY_BUDGET=100000 \
+            -e SCRAG_FORWARDED_IP_HEADER=x-forwarded-for -e SCRAG_FORWARDED_IP_HOPS=1
+
+      - name: Upload the raw results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-test-results
+          path: out/
+          retention-days: 30
