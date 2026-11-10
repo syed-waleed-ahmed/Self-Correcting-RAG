@@ -208,6 +208,20 @@ Acceptance, all as tests that run in CI against Postgres 17 with pgvector:
 - a job interrupted by a restart resumes:
   `test_job_interrupted_by_a_restart_resumes_after_its_lease_expires`.
 
+Evidence:
+- **CI run 42775432973:** the `test-postgres` job ran all 236 tests against
+  Postgres 17 with pgvector; only the 9 FAISS tests were skipped. The CLI
+  migration round trip passed.
+- **Memory:** the container peaked at 220 MB under 512 MB / 0.1 CPU (up from
+  210 MB, because of the new drivers). The image is 307 MB.
+- **Real stack, run locally** (fastembed, live Groq, Postgres):
+  - an upload was ingested in 1.8 s;
+  - the session-scoped answer was correct and passed evaluation;
+  - another session got 404 for the document and the conversation;
+  - the persisted budget kept its count across a server restart.
+- **Not live yet:** the public deployment has no database until a free Neon
+  project's URL is set on Render (`docs/deployment.md`, section 2).
+
 Original scope:
 
 Scope:
