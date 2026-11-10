@@ -103,6 +103,10 @@ jobs:
 
           profile capacity-1cpu 1.0 20 "Visitor" -- -e SCRAG_DEMO_MODE=false
           profile capacity-free-tier 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false
+          # Same, with ONNX Runtime's default of one thread per core (the image sets
+          # 1): a same-runner comparison for the choice.
+          profile capacity-free-tier-onnx-per-core 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false \
+            -e SCRAG_EMBEDDING_THREADS="$(nproc)"
           profile abuse-free-tier 0.1 11 "DemoVisitor Flooder" -- \
             -e SCRAG_DEMO_MODE=true -e SCRAG_DEMO_DAILY_QUERY_BUDGET=100000 \
             -e SCRAG_FORWARDED_IP_HEADER=x-forwarded-for -e SCRAG_FORWARDED_IP_HOPS=1
