@@ -175,7 +175,9 @@ export function SourcesCard({ chunks, title = "Sources" }: { chunks: ChunkView[]
 
 function SourceItem({ chunk, rank }: { chunk: ChunkView; rank: number }) {
   const [open, setOpen] = useState(false);
-  const preview = chunk.text.length > 220 && !open ? `${chunk.text.slice(0, 220)}…` : chunk.text;
+  // Source files hard-wrap lines; keep paragraph breaks but join wrapped lines.
+  const text = chunk.text.replace(/([^\n])\n(?!\n)/g, "$1 ");
+  const preview = text.length > 220 && !open ? `${text.slice(0, 220)}…` : text;
   return (
     <li className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -191,7 +193,7 @@ function SourceItem({ chunk, rank }: { chunk: ChunkView; rank: number }) {
         </span>
       </div>
       <p className="mt-2 whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{preview}</p>
-      {chunk.text.length > 220 && (
+      {text.length > 220 && (
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}

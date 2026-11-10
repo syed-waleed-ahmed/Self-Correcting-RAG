@@ -9,6 +9,13 @@ and a web UI.
 [docs/deployment.md](docs/deployment.md) for the free-tier deployment (Render +
 Vercel, about 10 minutes).
 
+![SCRAG demo UI answering a sample question: the answer, the self-check panel
+with its attempt timeline, and the sources with cosine, BM25, RRF and guardrail
+scores](docs/images/demo-ui.png)
+
+*Screenshot of the `web/` UI running locally against the real API in demo mode
+(2026-11-10). The answer shown is a recorded run, labelled as such.*
+
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
