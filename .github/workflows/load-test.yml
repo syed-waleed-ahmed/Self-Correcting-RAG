@@ -42,7 +42,9 @@ jobs:
           set -euo pipefail
           mkdir -p out
           echo "## Load test: deployment image, LLM stand-in at 300 ms per call" >> "$GITHUB_STEP_SUMMARY"
-          echo "Runner: $(nproc) CPUs, $(free -g | awk '/Mem:/ {print $2}') GB RAM" >> "$GITHUB_STEP_SUMMARY"
+          # Latency at --cpus 0.1 depends heavily on the runner's CPU, so record it.
+          cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1)
+          echo "Runner: $(nproc) CPUs ($cpu), $(free -g | awk '/Mem:/ {print $2}') GB RAM" >> "$GITHUB_STEP_SUMMARY"
 
           # Process (anonymous) memory and page cache, from the container's cgroup.
           # Only anonymous memory counts toward an OOM kill; the cache is reclaimable.

@@ -155,7 +155,35 @@ API from about 215 MiB to about 440 MiB of a 512 MiB instance. Two fixes:
 The workflow now measures a runtime ingest directly, at 0.1 CPU and 512 MB,
 with batch 32 and with the default:
 
-CI_INGEST_TABLE
+| Run ([42833040513](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/runs/42833040513)) | Process memory before | After one runtime ingest | Peak (cgroup) | OOM-killed |
+| --- | ---: | ---: | ---: | --- |
+| Batch 32 (old default) | 199 MiB | 431 MiB (+232) | 438 MiB | no |
+| **Batch 8 (new default)** | 205 MiB | **275 MiB (+70)** | 287 MiB | no |
+
+In the same run, the serving profiles stayed at 214-222 MiB of process memory,
+with peaks of 237-239 MiB. That was 457-462 MiB while the smoke script was
+re-ingesting at batch 32.
+
+## Latency at 0.1 CPU depends on the runner
+
+The free-tier capacity profile, the same code apart from the memory fix, in
+two runs:
+
+| Run | Req/s | Failures | Search median / p95 | Live answer median / p95 |
+| --- | ---: | ---: | --- | --- |
+| [42829377689](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/runs/42829377689) | 4.8 | 0 | 21 / 270 ms | 1,100 / 1,500 ms |
+| [42833040513](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/runs/42833040513) | 3.2 | 0 | 1,200 / 3,000 ms | 3,500 / 6,100 ms |
+
+- **The 1-CPU profile was stable across runs** (search 9 / 63-76 ms).
+- **`--cpus 0.1` gives the container 10 ms of CPU per 100 ms.** Once ten busy
+  users' requests need more than that in a period, they queue in 100 ms steps.
+  A few milliseconds' difference in per-request CPU between runner machines
+  then becomes a large difference in latency.
+- **The workflow now records the runner's CPU model.** The robust conclusions
+  from 0.1 CPU are the ones that held in both runs: no request failed, memory
+  stayed bounded, and a flooding client was contained.
+- **Ten users acting every 1-3 s is far busier than the demo's real traffic,**
+  whose rate limit allows each visitor 6 expensive requests a minute.
 
 ## Running it
 
