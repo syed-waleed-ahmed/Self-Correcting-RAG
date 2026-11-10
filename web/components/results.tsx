@@ -1,68 +1,11 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { Attempt, ChunkView, QueryResponse } from "@/lib/api";
+import { Markdown } from "./markdown";
 import { Card, Pill, ScoreBar, StatusBadge, formatDate } from "./ui";
 
-// Minimal Markdown for model answers: paragraphs, bullet/numbered lists,
-// headings, **bold** and `code`. Builds React elements (never raw HTML), so
-// model output cannot inject markup.
-function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return (
-        <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] dark:bg-slate-800">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return part;
-  });
-}
-
-function Paragraphs({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  return (
-    <div className="space-y-3 leading-relaxed text-slate-800 dark:text-slate-200">
-      {blocks.map((block, i) => {
-        const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
-        if (lines.every((l) => /^[-*]\s+/.test(l))) {
-          return (
-            <ul key={i} className="list-disc space-y-1 pl-5">
-              {lines.map((l, j) => (
-                <li key={j}>{inline(l.replace(/^[-*]\s+/, ""))}</li>
-              ))}
-            </ul>
-          );
-        }
-        if (lines.every((l) => /^\d+[.)]\s+/.test(l))) {
-          return (
-            <ol key={i} className="list-decimal space-y-1 pl-5">
-              {lines.map((l, j) => (
-                <li key={j}>{inline(l.replace(/^\d+[.)]\s+/, ""))}</li>
-              ))}
-            </ol>
-          );
-        }
-        if (/^#{1,6}\s+/.test(block)) {
-          return (
-            <p key={i} className="font-semibold">
-              {inline(block.replace(/^#{1,6}\s+/, ""))}
-            </p>
-          );
-        }
-        return (
-          <p key={i} className="whitespace-pre-line">
-            {inline(block)}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
+const SCOPE_LABEL = { samples: "sample docs", session: "your documents", all: "your documents + sample docs" } as const;
 
 export function AnswerCard({ result }: { result: QueryResponse }) {
   return (
@@ -79,7 +22,12 @@ export function AnswerCard({ result }: { result: QueryResponse }) {
         )
       }
     >
-      <Paragraphs text={result.answer} />
+      <Markdown text={result.answer} />
+      <p className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+        <span>Searched {SCOPE_LABEL[result.scope ?? "samples"]}</span>
+        {result.history_saved === true && <span>· Saved to your history</span>}
+        {result.history_saved === false && <span>· Not saved to history (storage unavailable or full)</span>}
+      </p>
       {result.cached && (
         <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
           This is the stored result of a real earlier execution, shown to save the free-tier
@@ -145,7 +93,7 @@ function AttemptItem({ attempt, returned }: { attempt: Attempt; returned: boolea
       </button>
       {open && (
         <div className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-950">
-          <Paragraphs text={attempt.answer} />
+          <Markdown text={attempt.answer} />
           {attempt.explanation && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
               <span className="font-medium">Evaluator:</span> {attempt.explanation}

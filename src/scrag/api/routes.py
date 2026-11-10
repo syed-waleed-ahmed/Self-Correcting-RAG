@@ -1,4 +1,4 @@
-"""HTTP routes: /health, /demo, /search, /query, /agent/*, /ingest.
+"""HTTP routes: /health, /demo, /search, /query[/stream], /agent/*, /ingest.
 
 Mounted twice by the app factory: under ``/api/v1`` and at the original
 unversioned paths. Session, upload and history routes live in
@@ -7,9 +7,11 @@ unversioned paths. Session, upload and history routes live in
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 
 from .. import __version__
 from ..container import Container
@@ -40,7 +42,7 @@ from ..models import (
     SearchRequest,
     SearchResponse,
 )
-from ..orchestration import AgentRunResult
+from ..orchestration import AgentRunResult, ToolRegistry, calculator_tool, document_search_tool
 from ..retriever import SupportsRetrieve
 from .deps import (
     get_container,
@@ -50,6 +52,7 @@ from .deps import (
     require_auth,
     require_auth_unless_demo,
 )
+from .streaming import Emit, sse_response
 
 if TYPE_CHECKING:
     from ..persistence import SessionRecord
@@ -211,6 +214,11 @@ def demo_info(request: Request) -> DemoInfo:
         if s.demo_mode
         else {},
         budget=c.budget.status() if c.budget else None,
+        features={
+            "sessions": c.persistence is not None,
+            "agent": c.agent is not None,
+            "streaming": True,
+        },
     )
 
 
@@ -236,14 +244,20 @@ def search(request: Request, body: SearchRequest) -> SearchResponse:
     )
 
 
-@router.post(
-    "/query",
-    response_model=QueryResponse,
-    tags=["rag"],
-    dependencies=[Depends(require_auth_unless_demo)],
-    responses=_ERRORS,
-)
-def query(request: Request, body: QueryRequest) -> QueryResponse:
+@dataclass
+class _QueryPlan:
+    """Everything /query decided before spending any LLM work."""
+
+    body: QueryRequest
+    session: SessionRecord | None
+    history_degraded: bool
+    retriever: SupportsRetrieve | None
+    top_k: int
+    fingerprint: str | None
+
+
+def _prepare_query(request: Request, body: QueryRequest) -> _QueryPlan:
+    """Validation, limits and session checks: these fail as ordinary HTTP errors."""
     c = get_container(request)
     if c.pipeline is None:
         raise LLMNotConfiguredError()
@@ -254,13 +268,24 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
         if session is None or c.persistence is None:
             raise SessionRequiredError("conversation_id needs a session")
         c.persistence.conversations.ensure(session.id, body.conversation_id)
-    top_k = _top_k(c, body.top_k)
+    return _QueryPlan(
+        body=body,
+        session=session,
+        history_degraded=history_degraded,
+        retriever=retriever,
+        top_k=_top_k(c, body.top_k),
+        # Cached answers exist only for the shared sample corpus.
+        fingerprint=c.corpus_fingerprint() if body.scope == "samples" else None,
+    )
 
-    # Cached answers exist only for the shared sample corpus.
-    fingerprint = c.corpus_fingerprint() if body.scope == "samples" else None
+
+def _answer(c: Container, plan: _QueryPlan, emit: Emit | None = None) -> QueryResponse:
+    """Serve a cached answer or run the pipeline, then record the turn."""
+    assert c.pipeline is not None
+    body = plan.body
     response: QueryResponse | None = None
-    if fingerprint is not None and body.use_cache and c.answers is not None:
-        hit = c.answers.get(body.query, top_k, fingerprint)
+    if plan.fingerprint is not None and body.use_cache and c.answers is not None:
+        hit = c.answers.get(body.query, plan.top_k, plan.fingerprint)
         if hit is not None:
             response = QueryResponse(
                 **{**hit.response, "query": body.query},
@@ -268,12 +293,16 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
                 cached_at=hit.cached_at,
                 cache_source=hit.source,
             )
+            if emit is not None:
+                emit({"stage": "cache", "status": "hit", "source": hit.source})
 
     if response is None:
         if c.budget is not None:
             c.budget.consume()
         try:
-            result = c.pipeline.run(body.query, top_k=top_k, retriever=retriever)
+            result = c.pipeline.run(
+                body.query, top_k=plan.top_k, retriever=plan.retriever, on_event=emit
+            )
         except ScragError:
             # The visitor got no answer (e.g. the provider was down or rate limited
             # us), so the run doesn't count against the daily budget.
@@ -283,18 +312,46 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
         if c.budget is not None and result.attempts == 0:
             c.budget.refund()  # nothing was retrieved, so no LLM call was made
         response = _to_response(result).model_copy(update={"scope": body.scope})
-        if fingerprint is not None and c.answers is not None:
+        if plan.fingerprint is not None and c.answers is not None:
             c.answers.put(
-                body.query, top_k, fingerprint, response.model_dump(exclude=_DELIVERY_FIELDS)
+                body.query,
+                plan.top_k,
+                plan.fingerprint,
+                response.model_dump(exclude=_DELIVERY_FIELDS),
             )
 
-    if session is not None:
-        response = _record_turn(c, session, body, response)
-    elif history_degraded:
+    if plan.session is not None:
+        response = _record_turn(c, plan.session, body, response)
+    elif plan.history_degraded:
         response = response.model_copy(
             update={"conversation_id": body.conversation_id, "history_saved": False}
         )
     return response
+
+
+@router.post(
+    "/query",
+    response_model=QueryResponse,
+    tags=["rag"],
+    dependencies=[Depends(require_auth_unless_demo)],
+    responses=_ERRORS,
+)
+def query(request: Request, body: QueryRequest) -> QueryResponse:
+    return _answer(get_container(request), _prepare_query(request, body))
+
+
+@router.post(
+    "/query/stream",
+    tags=["rag"],
+    dependencies=[Depends(require_auth_unless_demo)],
+    responses={**_ERRORS, 200: {"content": {"text/event-stream": {}}}},
+)
+def query_stream(request: Request, body: QueryRequest) -> StreamingResponse:
+    """Like /query, streamed as Server-Sent Events: `progress` per pipeline stage,
+    then `result` (the /query response body) or `error`."""
+    c = get_container(request)
+    plan = _prepare_query(request, body)
+    return sse_response(lambda emit: _answer(c, plan, emit).model_dump(mode="json"))
 
 
 @router.get("/agent/tools", tags=["agent"])
@@ -302,6 +359,52 @@ def agent_tools(request: Request) -> list[dict[str, Any]]:
     """The tool catalog: names, descriptions, permission levels and input schemas."""
     tools = get_container(request).tools
     return tools.specs() if tools else []
+
+
+@dataclass
+class _AgentPlan:
+    task: str
+    approved: frozenset[str]
+    registry: ToolRegistry | None
+
+
+def _prepare_agent(request: Request, body: AgentRunRequest) -> _AgentPlan:
+    c = get_container(request)
+    if c.agent is None:
+        raise LLMNotConfiguredError()
+    task = body.task.strip()
+    _demo_limits(request, task)
+    session, _ = _session_for(request, body.scope)
+    retriever = _resolve_retriever(request, body.scope, session)  # refreshes the index
+    # On the public demo only the operator may approve sensitive tools.
+    approved = frozenset(body.approved_tools)
+    if c.settings.demo_mode and operator_status(request) is not True:
+        approved = frozenset()
+    registry: ToolRegistry | None = None
+    if retriever is not None:
+        # The visitor's own documents: search them, never anything state-changing.
+        registry = ToolRegistry()
+        registry.register(document_search_tool(lambda q, k: retriever.retrieve(q, k)))
+        registry.register(calculator_tool())
+    return _AgentPlan(task=task, approved=approved, registry=registry)
+
+
+def _run_agent(c: Container, plan: _AgentPlan, emit: Emit | None = None) -> AgentRunResult:
+    assert c.agent is not None
+    cost = c.settings.agent_budget_cost
+    if c.budget is not None:
+        c.budget.consume(cost)
+    try:
+        result = c.agent.run(
+            plan.task, approved=plan.approved, registry=plan.registry, on_event=emit
+        )
+    except ScragError:
+        if c.budget is not None:
+            c.budget.refund(cost)
+        raise
+    if c.budget is not None and result.status != "completed":
+        c.budget.refund(cost)  # nothing was answered (approval pending or failure)
+    return result
 
 
 @router.post(
@@ -313,28 +416,21 @@ def agent_tools(request: Request) -> list[dict[str, Any]]:
 )
 def agent_run(request: Request, body: AgentRunRequest) -> AgentRunResult:
     """Plan -> run tools -> write -> verify, within hard step/LLM/time limits."""
+    return _run_agent(get_container(request), _prepare_agent(request, body))
+
+
+@router.post(
+    "/agent/run/stream",
+    tags=["agent"],
+    dependencies=[Depends(require_auth_unless_demo)],
+    responses={**_ERRORS, 200: {"content": {"text/event-stream": {}}}},
+)
+def agent_run_stream(request: Request, body: AgentRunRequest) -> StreamingResponse:
+    """Like /agent/run, streamed as Server-Sent Events: `progress` per trace
+    event (plan, tool, synthesize, verify), then `result` or `error`."""
     c = get_container(request)
-    if c.agent is None:
-        raise LLMNotConfiguredError()
-    task = body.task.strip()
-    _demo_limits(request, task)
-    c.refresh_index()
-    # On the public demo only the operator may approve sensitive tools.
-    approved = frozenset(body.approved_tools)
-    if c.settings.demo_mode and operator_status(request) is not True:
-        approved = frozenset()
-    cost = c.settings.agent_budget_cost
-    if c.budget is not None:
-        c.budget.consume(cost)
-    try:
-        result = c.agent.run(task, approved=approved)
-    except ScragError:
-        if c.budget is not None:
-            c.budget.refund(cost)
-        raise
-    if c.budget is not None and result.status != "completed":
-        c.budget.refund(cost)  # nothing was answered (approval pending or failure)
-    return result
+    plan = _prepare_agent(request, body)
+    return sse_response(lambda emit: _run_agent(c, plan, emit).model_dump(mode="json"))
 
 
 @router.post(

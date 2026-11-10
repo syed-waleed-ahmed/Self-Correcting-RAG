@@ -165,6 +165,9 @@ jobs:
       - name: Type check
         run: npm run lint
 
+      - name: Unit tests (SSE parser, session store, history, agent evidence)
+        run: npm test
+
   # Known-vulnerability audit of what actually ships: the deployment image's
   # Python dependencies (fresh resolve, same extras as the Dockerfile) and the
   # web UI's production npm dependencies.

@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Shell } from "@/components/shell";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const description =
@@ -10,7 +12,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://scrag-web.onrender.
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "SCRAG Demo",
+  title: { default: "SCRAG Demo", template: "%s · SCRAG Demo" },
   description,
   applicationName: "SCRAG",
   authors: [{ name: "Syed Waleed Ahmed", url: "https://github.com/syed-waleed-ahmed" }],
@@ -44,7 +46,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen font-sans">{children}</body>
+      <body className="min-h-screen font-sans">
+        <Providers>
+          <Shell>{children}</Shell>
+        </Providers>
+      </body>
     </html>
   );
 }

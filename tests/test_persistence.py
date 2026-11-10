@@ -9,6 +9,7 @@ Acceptance criteria covered here:
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -46,6 +47,7 @@ from .conftest import FAKE_DIM, TEST_DATABASE_URL, FakeChatClient, FakeEmbedder
 pytestmark = pytest.mark.postgres
 
 GUARDRAIL_DOC = "A guardrail agent can filter off-topic context before generation."
+PASS_EVAL = '{"score": 0.9, "explanation": "supported"}'
 EMBEDDING_DOC = "An embedding maps text to a vector; vector retrieval finds similar text."
 
 
@@ -503,3 +505,26 @@ def test_api_admin_stats_needs_the_operator(settings, database):
         assert client.get("/api/v1/admin/stats").status_code == 401
         stats = client.get("/api/v1/admin/stats", headers={"X-API-Key": "op-secret"}).json()
     assert stats["sessions"] == 1 and stats["database"] == "ok"
+
+
+def test_api_agent_can_search_only_the_sessions_uploads(settings, database):
+    plan = json.dumps({"steps": [{"tool": "document_search", "input": {"query": "guardrail"}}]})
+    chat = FakeChatClient(generator=[plan, "It filters context [S1]."], evaluator=PASS_EVAL)
+    client, container = _app(settings, chat=chat)
+    with client:
+        me = _session(client)
+        _upload_via_api(client, container, me, text=GUARDRAIL_DOC, name="mine.md")
+        body = client.post(
+            "/api/v1/agent/run",
+            headers=me,
+            json={"task": "What is a guardrail?", "scope": "session"},
+        ).json()
+        anonymous = client.post(
+            "/api/v1/agent/run", json={"task": "What is a guardrail?", "scope": "session"}
+        )
+    assert body["status"] == "completed"
+    hits = body["steps"][0]["call"]["output"]
+    assert [h["source"] for h in hits] == ["mine.md"]
+    # The session's tools are read-only: no reindex tool was offered to the planner.
+    assert "reindex_documents" not in chat.prompts_for("generator")[0]
+    assert anonymous.status_code == 401
