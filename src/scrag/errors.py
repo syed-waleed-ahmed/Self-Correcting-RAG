@@ -61,6 +61,85 @@ class QueryTooLongError(ScragError, ValueError):
     public_message = "The query is too long for the demo."
 
 
+# --- Sessions, uploads and persistence (Phase 4) ------------------------------------
+class SessionRequiredError(ScragError):
+    code = "session_required"
+    http_status = 401
+    public_message = (
+        "A valid session token is required in the X-Session-Token header. "
+        "Create one with POST /api/v1/sessions."
+    )
+
+
+class NotFoundError(ScragError, LookupError):
+    code = "not_found"
+    http_status = 404
+    public_message = "The requested resource does not exist."
+
+
+class UploadTooLargeError(ScragError, ValueError):
+    code = "upload_too_large"
+    http_status = 413
+    public_message = "The uploaded file is too large."
+
+
+class UnsupportedFileTypeError(ScragError, ValueError):
+    code = "unsupported_file_type"
+    http_status = 415
+    public_message = (
+        "Unsupported file type. Upload .txt, .md, .html, .csv, .json, .pdf or .docx files."
+    )
+
+
+class UnreadableDocumentError(ScragError, ValueError):
+    code = "unreadable_document"
+    http_status = 422
+    public_message = "The file could not be read as text (empty, encrypted or malformed)."
+
+
+class DocumentTooLongError(ScragError, ValueError):
+    code = "document_too_long"
+    http_status = 413
+    public_message = "The document has more text than an upload may contain."
+
+
+class SessionQuotaExceededError(ScragError):
+    code = "session_quota_exceeded"
+    http_status = 409
+    public_message = (
+        "This session has reached its document limit. Delete a document or start a new session."
+    )
+
+
+class StorageFullError(ScragError):
+    code = "storage_full"
+    http_status = 503
+    public_message = "The demo's document storage is full. Please try again later."
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": "3600"}
+
+
+class PersistenceDisabledError(ScragError):
+    code = "persistence_disabled"
+    http_status = 503
+    public_message = "Sessions, uploads and history are not enabled on this server."
+
+
+class DatabaseUnavailableError(ScragError):
+    code = "database_unavailable"
+    http_status = 503
+    public_message = (
+        "The database is unavailable right now. Questions about the sample documents "
+        "still work; please retry the rest later."
+    )
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": "30"}
+
+
 # --- Request / state errors (4xx) ---------------------------------------------
 class InvalidQueryError(ScragError, ValueError):
     code = "invalid_query"

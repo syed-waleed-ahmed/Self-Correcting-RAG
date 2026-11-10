@@ -56,6 +56,46 @@ jobs:
       - name: Test vector stores (numpy + faiss)
         run: pytest -q tests/test_vector_stores.py tests/test_numpy_store.py
 
+  # Persistence (sessions, uploads, history, jobs) against a real Postgres with
+  # pgvector. The rest of the suite runs here too, so nothing is skipped.
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: scrag
+          POSTGRES_DB: scrag_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:scrag@localhost:5432/scrag_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev,docs]"
+
+      - name: Test (with Postgres)
+        run: pytest -q -rs
+
+      - name: Migrations round-trip via the CLI
+        env:
+          SCRAG_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: |
+          scrag db status
+          scrag db downgrade --to 0 --yes
+          scrag db upgrade
+          scrag db status
+
   # Build the deployment image and run it under the free-tier budget
   # (512 MB RAM, 0.1 CPU), then smoke-test it and record peak memory.
   container:

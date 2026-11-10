@@ -30,10 +30,13 @@ from ..container import Container, build_container
 from ..errors import ScragError
 from ..logging_config import configure_logging, get_logger, request_id_var
 from .routes import router
+from .workspace import router as workspace_router
 
 logger = get_logger(__name__)
 
 REQUEST_ID_HEADER = "X-Request-ID"
+# Multipart framing (boundaries, part headers) on top of the file itself.
+_MULTIPART_OVERHEAD_BYTES = 16 * 1024
 # Accept a caller-supplied ID only if it is short and log-safe.
 _REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
 
@@ -45,6 +48,7 @@ _HTTP_ERROR_CODES = {
     404: "not_found",
     405: "method_not_allowed",
     409: "conflict",
+    411: "length_required",
     413: "payload_too_large",
     429: "rate_limited",
     503: "service_unavailable",
@@ -99,6 +103,39 @@ class RequestContextMiddleware:
             request_id_var.reset(token)
 
 
+class UploadLimitMiddleware:
+    """Reject oversized uploads before the multipart body is read.
+
+    Starlette spools a multipart upload to disk while parsing it, before any
+    route code runs, so the size limit has to be enforced here. Uploads must
+    declare a ``Content-Length`` (browsers always do for form uploads); the
+    server enforces that the body matches it.
+    """
+
+    def __init__(self, app: ASGIApp, *, max_bytes: int, path_suffix: str = "/documents") -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+        self.path_suffix = path_suffix
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] == "http"
+            and scope["method"] == "POST"
+            and scope["path"].rstrip("/").endswith(self.path_suffix)
+        ):
+            declared = next((v for k, v in scope["headers"] if k == b"content-length"), None)
+            status, code, detail = 0, "", ""
+            if declared is None or not declared.isdigit():
+                status, code, detail = 411, "length_required", "Uploads need a Content-Length."
+            elif int(declared) > self.max_bytes:
+                status, code, detail = 413, "upload_too_large", "The uploaded file is too large."
+            if status:
+                response = JSONResponse(status_code=status, content=error_body(code, detail))
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -118,15 +155,22 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = settings
-        app.state.container = container or build_container(settings)
-        loaded = app.state.container.load_index()
+        c = app.state.container = container or build_container(settings)
+        loaded = c.load_index()
+        if c.persistence is not None:
+            c.persistence.start()  # never blocks on the database (see Persistence.start)
         logger.info(
-            "Startup complete (index loaded=%s, size=%d, llm=%s)",
+            "Startup complete (index loaded=%s, size=%d, llm=%s, persistence=%s)",
             loaded,
-            len(app.state.container.store),
+            len(c.store),
             settings.has_llm,
+            c.persistence is not None,
         )
-        yield
+        try:
+            yield
+        finally:
+            if c.persistence is not None:
+                c.persistence.stop()
 
     app = FastAPI(
         title="Self-Correcting RAG",
@@ -136,7 +180,12 @@ def create_app(
     )
 
     # Order matters: the last middleware added is the outermost. CORS wraps the
-    # request-context layer so even sanitized 500s carry CORS headers.
+    # request-context layer so even sanitized 500s carry CORS headers, and the
+    # upload limit runs inside it so its errors carry a request ID.
+    app.add_middleware(
+        UploadLimitMiddleware,
+        max_bytes=settings.upload_max_bytes + _MULTIPART_OVERHEAD_BYTES,
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -171,4 +220,5 @@ def create_app(
     # (hidden from the OpenAPI schema to avoid listing every route twice).
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, include_in_schema=False)
+    app.include_router(workspace_router, prefix="/api/v1")  # new routes: versioned only
     return app

@@ -5,7 +5,8 @@
   instances).
 * :class:`DailyBudget` - global cap on live LLM pipeline runs per UTC day, so the
   provider's free quota can't be drained by one visitor. It resets on restart
-  (it is a quota guard, not billing).
+  (it is a quota guard, not billing); with a database configured,
+  :class:`scrag.persistence.PersistentDailyBudget` keeps the count across restarts.
 * :class:`AnswerCache` - recorded sample answers plus a small TTL cache of recent
   live answers. Cached responses are always labelled as cached with their
   timestamp; they are real past executions, never synthesized.
@@ -23,7 +24,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from .errors import DemoBudgetExhaustedError, RateLimitedError
 from .logging_config import get_logger
@@ -66,6 +67,18 @@ class RateLimiter:
             if len(self._buckets) > 10_000:  # bound memory: drop the stalest keys
                 for stale in sorted(self._buckets, key=lambda k: self._buckets[k][1])[:5_000]:
                     del self._buckets[stale]
+
+
+class Budget(Protocol):
+    """A daily quota of live LLM runs (in-process, or persisted in Postgres)."""
+
+    limit: int
+
+    def consume(self, units: int = 1) -> None: ...
+
+    def refund(self, units: int = 1) -> None: ...
+
+    def status(self) -> dict[str, Any]: ...
 
 
 class DailyBudget:

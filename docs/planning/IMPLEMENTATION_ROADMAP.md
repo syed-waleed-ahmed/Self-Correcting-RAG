@@ -33,6 +33,7 @@ the **owner's decision**:
 | 2 | Advanced RAG foundation + minimal eval harness | **Done** (pgvector moved to Phase 4, ADR 0006) |
 | 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
 | 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
+| 4 | Persistence and identity | **Done** in code and CI (2026-11-10); live once a free database is connected |
 | 4 | Persistence, auth, sessions, durable jobs | Not started |
 | 5 | Frontend | Not started (a minimal page ships in 2b) |
 | 6 | Observability and evaluation | Not started |
@@ -187,7 +188,27 @@ Acceptance:
 - Step and token budgets are enforced.
 - An approval-required tool can't run without approval.
 
-## Phase 4: Persistence and identity
+## Phase 4: Persistence and identity (done 2026-11-10)
+
+Delivered (ADR 0007, ADR 0008):
+- schema and migrations (plain SQL with downgrades, not Alembic: ADR 0007);
+- anonymous sessions with hashed tokens and a 24 h TTL;
+- JWT verification for admins (JWKS or HS256; e.g. Supabase Auth);
+- conversations and history;
+- uploads stored as extracted text in Postgres, not Supabase Storage (less to
+  secure and store);
+- a durable Postgres job queue with leases, retries and fencing;
+- per-session deletion and expiry purge;
+- a persistent daily budget;
+- search over uploads (pgvector + full text, RRF) with `scope`.
+
+Acceptance, all as tests that run in CI against Postgres 17 with pgvector:
+- data survives a backend restart: `test_api_data_survives_a_backend_restart`;
+- tenant isolation: `test_api_sessions_are_isolated_from_each_other`;
+- a job interrupted by a restart resumes:
+  `test_job_interrupted_by_a_restart_resumes_after_its_lease_expires`.
+
+Original scope:
 
 Scope:
 - Schema and migrations (Alembic).

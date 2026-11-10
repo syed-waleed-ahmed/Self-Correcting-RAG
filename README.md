@@ -20,7 +20,7 @@ recorded runs; "Run live" executes the pipeline.*
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
-![Tests](https://img.shields.io/badge/tests-187-brightgreen)
+![Tests](https://img.shields.io/badge/tests-236-brightgreen)
 
 ---
 
@@ -99,6 +99,16 @@ without touching orchestration logic.
   - a writer answers from delimited, untrusted evidence with citations;
   - the evaluator verifies the answer and can trigger one correction;
   - hard limits on steps, LLM calls and time, with token usage reported per run.
+- Sessions, uploads and history (optional Postgres + pgvector, ADR 0008):
+  - anonymous sessions with hashed tokens and a fixed TTL; deleting a session
+    (or its expiry) deletes everything in it;
+  - document uploads ingested by a durable job queue (`SKIP LOCKED` leases,
+    retries, resume after a restart);
+  - search over your uploads, the sample corpus, or both (`scope`), with
+    pgvector + Postgres full text fused by RRF;
+  - conversation history and a daily demo budget that survive restarts;
+  - tenant isolation tested end to end; the API still answers sample questions
+    while the database is down.
 - Public demo mode: per-client rate limits, a global daily budget of live LLM
   queries, recorded sample answers (labelled as cached), a retrieval-only
   `/search` endpoint, and a Next.js web UI (`web/`).
@@ -119,8 +129,9 @@ without touching orchestration logic.
 - Typed configuration (pydantic-settings), structured logging (optional JSON)
   with per-request IDs, robust output parsing (decimals, percentages,
   fractions), and a sanitized error contract that never leaks internals.
-- Fully tested: 187 tests run with fakes (no network, no torch) and in CI across
-  Python 3.10-3.12, plus lint, format and type checks. Dockerfile and
+- Fully tested: 236 tests run with fakes (no network, no torch) and in CI across
+  Python 3.10-3.12, plus a job against a real Postgres with pgvector, and lint,
+  format and type checks. Dockerfile and
   docker-compose included.
 
 ## Install
@@ -141,7 +152,8 @@ cp .env.example .env                 # Windows: copy .env.example .env
 ```
 
 Optional extras: `.[local]` (torch-based embedder; same vectors, about twice the
-memory), `.[faiss]` (FAISS backend), `.[dev]` (tests + lint), `.[all]`.
+memory), `.[faiss]` (FAISS backend), `.[postgres]` (sessions, uploads, history),
+`.[auth]` (JWT admin auth), `.[dev]` (tests + lint), `.[all]`.
 VS Code users get a pre-wired interpreter/test config in `.vscode/settings.json`.
 
 > Get a free Groq API key at https://console.groq.com. Any OpenAI-compatible
@@ -211,12 +223,9 @@ docker compose up --build                      # API on http://localhost:8000
 
 ## API reference
 
-Auth is enforced only when `SCRAG_API_AUTH_TOKEN` is set (see [Security](#security)).
-
-| Method | Path      | Auth | Description                                       |
-| ------ | --------- | :--: | ------------------------------------------------- |
-All routes are served under `/api/v1`. The original unversioned paths still
-work.
+Auth is enforced only when `SCRAG_API_AUTH_TOKEN` (or JWT admins) is set (see
+[Security](#security)). All routes are served under `/api/v1`; the original
+unversioned paths still work for the routes that predate it.
 
 | Method | Path      | Auth | Description                                       |
 | ------ | --------- | :--: | ------------------------------------------------- |
@@ -228,6 +237,24 @@ work.
 | GET    | `/agent/tools` | no | Tool catalog with permissions and input schemas |
 | POST   | `/ingest` | yes  | (Re)build the index from the configured docs dir  |
 | GET    | `/docs`   |  no  | Interactive OpenAPI (Swagger) UI                  |
+
+With a database configured (`SCRAG_DATABASE_URL`), these session routes exist
+under `/api/v1` (send the token as `X-Session-Token`):
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST   | `/sessions` | Start an anonymous session; returns the token once |
+| GET / DELETE | `/sessions/me` | Usage and limits / delete the session and all its data now |
+| POST   | `/documents` | Upload a file (multipart `file`); `202` with an ingestion job |
+| GET    | `/documents`, `/documents/{id}` | Your documents and their status |
+| DELETE | `/documents/{id}` | Delete a document and its chunks |
+| GET    | `/jobs/{id}` | Ingestion job status |
+| GET / DELETE | `/conversations`, `/conversations/{id}` | Saved history |
+| GET    | `/admin/stats` | Row counts (operator only) |
+
+`POST /query` and `POST /search` take `scope`: `samples` (default), `session`
+(your uploads) or `all` (both, fused). With a session, `/query` saves the turn
+and returns `conversation_id`; pass it back to continue the conversation.
 
 `POST /ingest` takes `{"reset": true}` (default) to rebuild the index from the
 docs directory, or `{"reset": false}` to upsert: unchanged documents are skipped,
@@ -244,12 +271,16 @@ response carries an `X-Request-ID` header that matches the server logs:
 
 | Status | `error` codes                                                                    |
 | ------ | -------------------------------------------------------------------------------- |
-| 400    | `invalid_query`                                                                  |
-| 401    | `unauthorized`                                                                   |
-| 409    | `index_empty`, `ingest_in_progress`, `documents_not_found`, `no_documents`       |
+| 400    | `invalid_query`, `query_too_long`                                                |
+| 401    | `unauthorized`, `session_required`                                               |
+| 403    | `forbidden`                                                                      |
+| 404    | `not_found` (also for another session's resources)                               |
+| 409    | `index_empty`, `ingest_in_progress`, `documents_not_found`, `no_documents`, `session_quota_exceeded` |
+| 411 / 413 / 415 / 422 | `length_required`, `upload_too_large` / `document_too_long`, `unsupported_file_type`, `unreadable_document` |
+| 429    | `rate_limited`, `demo_budget_exhausted`                                          |
 | 500    | `internal_error`, `configuration_error`, `embedding_dimension_mismatch`, `index_incompatible` |
 | 502    | `llm_error`                                                                      |
-| 503    | `llm_not_configured`, `llm_rate_limited`                                         |
+| 503    | `llm_not_configured`, `llm_rate_limited`, `persistence_disabled`, `database_unavailable`, `storage_full` |
 
 ## Configuration
 
@@ -281,6 +312,10 @@ Highlights:
 | `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer |
 | `SCRAG_MAX_SELF_CORRECT_STEPS` | `2`                              | Max generate/evaluate attempts (1-10)   |
 | `SCRAG_API_AUTH_TOKEN`         | (unset)                          | If set, `/query` + `/ingest` require it |
+| `SCRAG_DATABASE_URL`           | (unset)                          | Postgres + pgvector for sessions, uploads, history (also `DATABASE_URL`) |
+| `SCRAG_SESSION_TTL_HOURS`      | `24`                             | Sessions and their data are deleted after this |
+| `SCRAG_SESSION_MAX_DOCUMENTS`  | `5`                              | Uploads per session (`SCRAG_UPLOAD_MAX_BYTES` caps each, default 1 MB) |
+| `SCRAG_ADMIN_SUBJECTS`         | `[]`                             | JWT `sub`s with operator rights (with `SCRAG_AUTH_JWKS_URL` or `SCRAG_AUTH_JWT_SECRET`) |
 
 ## Security
 
@@ -292,7 +327,12 @@ Highlights:
 - Restrict CORS in production via `SCRAG_CORS_ALLOW_ORIGINS` (defaults to all
   origins for easy local use).
 - No arbitrary file access: ingestion only reads the server-configured
-  `docs_dir`; request bodies never carry file paths.
+  `docs_dir`. Uploads are size-checked before the body is parsed, their names
+  are reduced to a safe base name, and only extracted text is stored.
+- Sessions: tokens are 256-bit random values stored only as SHA-256 hashes;
+  every query is scoped by session, and other sessions' data answers 404.
+- Optional JWT admin auth (e.g. Supabase Auth): algorithms come from the
+  configuration, never from the token, and `exp`, `sub` and `aud` are required.
 - The container image runs as a non-root user.
 
 ## Project structure
@@ -313,13 +353,16 @@ src/scrag/
   sparse.py            in-process BM25 index + Reciprocal Rank Fusion
   evaluation.py        golden-set retrieval/answer metrics (`scrag eval`)
   demo.py              rate limiter, daily budget, answer cache
+  persistence/         Postgres: sessions, uploads, history, job queue,
+                       persistent budget, SQL migrations (up + down)
+  auth.py              bearer-JWT verification for admins
   orchestration/       tool registry + bounded agent workflow
   usage.py             per-run LLM token accounting
   ingest.py            load -> chunk -> embed -> index
   pipeline.py          self-correcting orchestrator (keeps best attempt)
   container.py         composition root / dependency wiring
-  api/                 FastAPI app factory + routes
-  cli.py               Typer CLI (ingest / query / serve / info)
+  api/                 FastAPI app factory, routes, session routes, deps
+  cli.py               Typer CLI (ingest / query / serve / info / agent / eval / db)
 scripts/verify.py      single command for every CI quality gate
 scripts/smoke.py       smoke test for a running API (local or deployed)
 scripts/record_samples.py  record real runs for the demo's sample questions
@@ -338,9 +381,13 @@ python scripts/verify.py        # lint + format check + mypy + tests (what CI ru
 python scripts/verify.py --fix  # apply ruff fixes/formatting first
 ```
 
-The 187 tests run in a few seconds with no network or API key. The 9 FAISS
-tests are skipped unless `faiss-cpu` is installed; CI runs them in a separate
-job.
+The 236 tests run in seconds with no network or API key. Two groups skip
+unless their dependency is present, and CI runs both:
+- the 9 FAISS tests need `faiss-cpu`;
+- the 24 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
+  Postgres with pgvector, e.g.
+  `docker run -e POSTGRES_PASSWORD=pg -p 5432:5432 pgvector/pgvector:pg17` and
+  `TEST_DATABASE_URL=postgresql://postgres:pg@localhost:5432/postgres`.
 
 The test suite injects a fake embedder and a scriptable fake LLM client, so it
 runs with no API key, no network, and no torch - the same path CI uses on Python

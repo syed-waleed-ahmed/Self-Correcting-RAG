@@ -12,12 +12,12 @@ tiers change without notice: re-verify before each deployment (see
 | --- | --- | --- |
 | Frontend hosting | Vercel Hobby | Use |
 | API hosting | Render Free Web Service | Use, with constraints (512 MB RAM, sleeps) |
-| Database + vectors + file storage | Supabase Free (Postgres + pgvector + Storage) | Use, with constraints (pauses after 7 days) |
+| Database + vectors | **Neon Free** (Postgres + pgvector), re-verified 2026-11-10; Supabase Free supported as an alternative | Use (ADR 0008). No file storage needed: only extracted text is kept |
 | LLM inference | Groq free tier | Use; the only free LLM usable for an EU-reachable public demo |
 | Second free LLM provider | Google Gemini API free tier | **Do not use** for the public demo (EU terms, below) |
 | Local LLM | Ollama | Local development only |
 | Embeddings | fastembed (ONNX) running in-process | Use in deployment; torch is too large for Render Free |
-| Cache / queue | Postgres (Supabase) and in-process memory | Use; Redis not needed |
+| Cache / queue | Postgres and in-process memory | Use; Redis not needed |
 | Redis | Upstash Redis Free | Optional only; never add a card |
 | CI | GitHub Actions (public repository) | Use |
 | Alternatives rejected | Hugging Face Spaces (Docker now needs a paid plan), Koyeb (no free plan for new users), Qdrant Cloud free (deleted after 4 idle weeks) | Do not use |
@@ -59,6 +59,23 @@ tiers change without notice: re-verify before each deployment (see
 - **Region (V):** Frankfurt is available.
 - **Sources:** https://render.com/docs/free, https://render.com/docs/docker,
   https://render.com/pricing
+
+### Neon Free (Postgres, pgvector): chosen for Phase 4 (checked 2026-11-10)
+
+- **Quotas (V, Neon FAQ updated 2026-10-01):**
+  - 100 CU-hours of compute per project per month
+  - 1 GB of storage per project (some older pages say 0.5 GB; the app's
+    global document cap keeps usage far below either)
+  - 5 GB of public network transfer
+- **Idle behaviour (V):** compute scales to zero after 5 minutes of inactivity
+  and resumes on the next connection. There is no manual-restore pause.
+- **Overage (V):** never billed on Free. Writes that would grow storage past
+  the cap fail until space is freed.
+- **pgvector (V):** supported (`CREATE EXTENSION vector`).
+- **Card (U):** not expected for Free. Don't add one: the Launch plan is
+  pay-as-you-go.
+- **Sources:** https://neon.com/faqs/free-plan-limits-and-quotas,
+  https://neon.com/docs/extensions/pg-extensions
 
 ### Supabase Free (Postgres, pgvector, Auth, Storage)
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
+import tempfile
 from collections.abc import Callable
 from html.parser import HTMLParser
 from pathlib import Path
@@ -150,6 +152,38 @@ LOADERS: dict[str, Callable[..., str]] = {
 }
 
 SUPPORTED_SUFFIXES = frozenset(LOADERS)
+
+
+_UNSAFE_NAME_CHARS = re.compile(r"[\x00-\x1f\x7f/\\:*?\"<>|]+")
+
+
+def safe_filename(name: str | None, *, max_length: int = 120) -> str:
+    """A display-safe base name for an uploaded file (no paths or control characters)."""
+    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    base = _UNSAFE_NAME_CHARS.sub("_", base).strip(" .")
+    if not base:
+        return "upload.txt"
+    stem, dot, suffix = base.rpartition(".")
+    if dot and len(suffix) <= 10 and len(base) > max_length:
+        return stem[: max_length - len(suffix) - 1] + "." + suffix
+    return base[:max_length]
+
+
+def extract_upload(data: bytes, filename: str, *, max_bytes: int, max_pdf_pages: int = 300) -> str:
+    """Extract text from uploaded bytes with the same loaders as files on disk.
+
+    The bytes go to a private temporary directory under a fixed name (never the
+    client's filename), so an upload can't choose where it is written.
+    """
+    suffix = Path(filename).suffix.lower()
+    if suffix not in LOADERS:
+        raise LoaderError(f"unsupported file type {suffix!r}")
+    if len(data) > max_bytes:
+        raise LoaderError(f"{len(data)} bytes exceeds the {max_bytes}-byte limit")
+    with tempfile.TemporaryDirectory(prefix="scrag-upload-") as tmp:
+        path = Path(tmp) / f"upload{suffix}"
+        path.write_bytes(data)
+        return extract_text(path, max_bytes=max_bytes, max_pdf_pages=max_pdf_pages)
 
 
 def extract_text(path: Path, *, max_bytes: int, max_pdf_pages: int = 300) -> str:

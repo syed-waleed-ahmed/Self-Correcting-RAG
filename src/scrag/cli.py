@@ -1,9 +1,9 @@
-"""Command-line interface (Typer): ingest, query, serve, info."""
+"""Command-line interface (Typer): ingest, query, serve, info, agent, eval, db."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import typer
 
@@ -156,6 +156,67 @@ def agent(
             f"attempts: {result.attempts}"
         )
     typer.echo(f"Usage: {result.usage}")
+
+
+db_app = typer.Typer(
+    help="Database schema migrations (needs SCRAG_DATABASE_URL).", no_args_is_help=True
+)
+app.add_typer(db_app, name="db")
+
+
+def _db_connect() -> Any:
+    settings = _bootstrap()
+    if not settings.database_url:
+        _fail("SCRAG_DATABASE_URL (or DATABASE_URL) is not set.")
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError:
+        _fail('Needs the postgres extra: pip install "self-correcting-rag[postgres]"')
+    return psycopg.connect(
+        settings.database_url,
+        prepare_threshold=None,
+        row_factory=dict_row,
+        connect_timeout=max(1, round(settings.db_connect_timeout_s)),
+    )
+
+
+@db_app.command("status")
+def db_status() -> None:
+    """Show the applied schema version and the latest available one."""
+    from .persistence.migrations import current_version, load_migrations
+
+    latest = max((m.version for m in load_migrations()), default=0)
+    with _db_connect() as conn:
+        version = current_version(conn)
+    typer.echo(f"Schema version: {version} (latest available: {latest})")
+
+
+@db_app.command("upgrade")
+def db_upgrade(
+    to: int | None = typer.Option(None, "--to", help="Target version (default: latest)."),
+) -> None:
+    """Apply pending migrations."""
+    from .persistence.migrations import apply_migrations
+
+    with _db_connect() as conn:
+        applied = apply_migrations(conn, target=to)
+    typer.echo(f"Applied: {applied}" if applied else "Already up to date.")
+
+
+@db_app.command("downgrade")
+def db_downgrade(
+    to: int = typer.Option(..., "--to", help="Version to go back to (0 removes every table)."),
+    yes: bool = typer.Option(False, "--yes", help="Confirm: downgrades delete data."),
+) -> None:
+    """Revert migrations newer than --to. Destructive: the dropped tables' data is lost."""
+    from .persistence.migrations import rollback_migrations
+
+    if not yes:
+        _fail("Downgrading deletes data. Re-run with --yes to confirm.")
+    with _db_connect() as conn:
+        reverted = rollback_migrations(conn, target=to)
+    typer.echo(f"Reverted: {reverted}" if reverted else "Nothing to revert.")
 
 
 @app.command("eval")
