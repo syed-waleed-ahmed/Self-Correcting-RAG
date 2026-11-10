@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from .client import ChatClient, LLMError, OpenAICompatibleClient
+from .client import ChatClient, LLMError, LLMRateLimitError, OpenAICompatibleClient
 
-__all__ = ["ChatClient", "LLMError", "OpenAICompatibleClient"]
+__all__ = ["ChatClient", "LLMError", "LLMRateLimitError", "OpenAICompatibleClient"]

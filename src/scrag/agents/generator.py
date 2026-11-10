@@ -11,6 +11,8 @@ _SYSTEM = (
     "not sure instead of guessing."
 )
 
+MAX_FEEDBACK_CHARS = 1000
+
 
 def build_context(chunks: list[RetrievedChunk]) -> str:
     """Render retrieved chunks into a numbered, source-attributed context block."""
@@ -31,14 +33,26 @@ class GeneratorAgent:
         query: str,
         chunks: list[RetrievedChunk],
         previous_answer: str | None = None,
+        feedback: str | None = None,
     ) -> str:
+        """Generate an answer; on retries, revise ``previous_answer`` using ``feedback``.
+
+        ``feedback`` is the evaluator's explanation of what was wrong with the
+        previous answer. Without it the model would be asked to "improve" an
+        answer with no idea what to change.
+        """
         context = build_context(chunks)
         if previous_answer:
+            critique = (feedback or "").strip()[:MAX_FEEDBACK_CHARS]
+            critique_block = (
+                f"Reviewer feedback on that answer:\n{critique}\n\n" if critique else ""
+            )
             user = (
                 f"User question:\n{query}\n\nRelevant context:\n{context}\n\n"
                 f"A previous answer was judged low quality:\n{previous_answer}\n\n"
-                "Provide a corrected, improved answer grounded strictly in the context. "
-                "If the context lacks the answer, say you are not sure."
+                f"{critique_block}"
+                "Provide a corrected, improved answer grounded strictly in the context, "
+                "addressing the feedback. If the context lacks the answer, say you are not sure."
             )
         else:
             user = (

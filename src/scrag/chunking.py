@@ -9,6 +9,7 @@ break on paragraph/sentence boundaries and falls back to hard character cuts.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 # Boundaries preferred for splitting, strongest first.
@@ -66,7 +67,7 @@ class Chunker:
             chunks.append(current)
         return [c.strip() for c in chunks if c.strip()]
 
-    def _sentences(self, text: str):  # type: ignore[no-untyped-def]
+    def _sentences(self, text: str) -> Iterator[str]:
         """Yield sentence-ish units split on paragraph then sentence boundaries."""
         for para in _PARAGRAPH.split(text):
             para = para.strip()

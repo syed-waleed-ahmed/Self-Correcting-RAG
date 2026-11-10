@@ -29,5 +29,29 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy src
+
       - name: Test (pytest)
         run: pytest -q
+
+  # The FAISS backend is optional; exercise it in one job so it can't rot.
+  test-faiss:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev,faiss]"
+
+      - name: Test vector stores (numpy + faiss)
+        run: pytest -q tests/test_vector_stores.py tests/test_numpy_store.py

@@ -4,6 +4,10 @@ Uses a flat inner-product index over L2-normalized vectors (exact cosine). Swap
 ``IndexFlatIP`` for an IVF/HNSW index if you need approximate search at very
 large scale; the persistence contract stays the same.
 
+Like the NumPy store, the live state is an immutable ``(index, chunks)`` tuple:
+writes build a new FAISS index (copy-on-write) and swap it in, so concurrent
+searches never touch an index that is being modified.
+
 Requires the optional dependency::
 
     pip install "self-correcting-rag[faiss]"
@@ -11,19 +15,17 @@ Requires the optional dependency::
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from ..logging_config import get_logger
+from ..errors import IndexIncompatibleError
 from ..models import Chunk, RetrievedChunk
-from .base import VectorStore
-
-logger = get_logger(__name__)
+from ._persistence import PersistentVectorStore, check_count, read_chunks, write_chunks
 
 
-def _import_faiss():  # type: ignore[no-untyped-def]
+def _import_faiss() -> Any:
     try:
         import faiss
     except ImportError as exc:  # pragma: no cover - optional dependency
@@ -34,69 +36,85 @@ def _import_faiss():  # type: ignore[no-untyped-def]
     return faiss
 
 
-class FaissVectorStore(VectorStore):
+class FaissVectorStore(PersistentVectorStore):
+    backend = "faiss"
+    legacy_files = ("index.faiss", "chunks.jsonl")
+
     def __init__(self, dim: int, path: Path | str) -> None:
-        self.dim = dim
-        self.path = Path(path)
+        super().__init__(dim, path)
         self._faiss = _import_faiss()
-        self._index = self._faiss.IndexFlatIP(dim)
-        self._chunks: list[Chunk] = []
+        self._state: tuple[Any, tuple[Chunk, ...]] = (self._faiss.IndexFlatIP(dim), ())
 
     def __len__(self) -> int:
-        return len(self._chunks)
+        return len(self._state[1])
 
+    # --- writes ----------------------------------------------------------------
     def add(self, vectors: np.ndarray, chunks: list[Chunk]) -> None:
         if len(chunks) == 0:
             return
-        normalized = self._normalize(vectors)
-        if normalized.shape[1] != self.dim:
-            raise ValueError(f"expected dim {self.dim}, got {normalized.shape[1]}")
-        self._index.add(normalized)
-        self._chunks.extend(chunks)
+        normalized = self._validated(vectors, chunks)
+        with self._lock:
+            current_index, current_chunks = self._state
+            index = self._faiss.clone_index(current_index)
+            index.add(normalized)
+            self._state = (index, current_chunks + tuple(chunks))
 
-    def search(self, query_vector: np.ndarray, top_k: int) -> list[RetrievedChunk]:
-        if len(self._chunks) == 0 or top_k <= 0:
-            return []
-        query = self._normalize(query_vector)
-        k = min(top_k, len(self._chunks))
-        scores, indices = self._index.search(query, k)
-        results: list[RetrievedChunk] = []
-        for score, idx in zip(scores[0], indices[0], strict=False):
-            if idx < 0:
-                continue
-            results.append(
-                RetrievedChunk(chunk=self._chunks[int(idx)], score=float(score))
-            )
-        return results
+    def replace(self, vectors: np.ndarray, chunks: list[Chunk]) -> None:
+        index = self._faiss.IndexFlatIP(self.dim)
+        if chunks:
+            index.add(self._validated(vectors, chunks))
+        with self._lock:
+            self._state = (index, tuple(chunks))
 
     def clear(self) -> None:
-        self._index = self._faiss.IndexFlatIP(self.dim)
-        self._chunks = []
+        with self._lock:
+            self._state = (self._faiss.IndexFlatIP(self.dim), ())
 
-    def save(self) -> None:
-        self.path.mkdir(parents=True, exist_ok=True)
-        self._faiss.write_index(self._index, str(self.path / "index.faiss"))
-        with (self.path / "chunks.jsonl").open("w", encoding="utf-8") as f:
-            for chunk in self._chunks:
-                f.write(chunk.model_dump_json() + "\n")
-        with (self.path / "meta.json").open("w", encoding="utf-8") as f:
-            json.dump({"dim": self.dim, "count": len(self._chunks)}, f)
-        logger.info("Saved FAISS index (%d chunks) to %s", len(self._chunks), self.path)
+    # --- reads -----------------------------------------------------------------
+    def snapshot(self) -> tuple[np.ndarray, list[Chunk]]:
+        index, chunks = self._state
+        if index.ntotal == 0:
+            return np.zeros((0, self.dim), dtype="float32"), list(chunks)
+        return np.asarray(index.reconstruct_n(0, index.ntotal), dtype="float32"), list(chunks)
 
-    def load(self) -> bool:
-        index_path = self.path / "index.faiss"
-        chunks_path = self.path / "chunks.jsonl"
-        if not (index_path.exists() and chunks_path.exists()):
-            return False
-        self._index = self._faiss.read_index(str(index_path))
-        if self._index.d != self.dim:
-            raise ValueError(
-                f"Persisted FAISS dim {self._index.d} != configured dim {self.dim}."
-            )
-        self._chunks = [
-            Chunk.model_validate_json(line)
-            for line in chunks_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
+    def search(self, query_vector: np.ndarray, top_k: int) -> list[RetrievedChunk]:
+        index, chunks = self._state  # one read: a consistent snapshot
+        if len(chunks) == 0 or top_k <= 0:
+            return []
+        query = self._normalize(query_vector)
+        k = min(top_k, len(chunks))
+        scores, indices = index.search(query, k)
+        return [
+            RetrievedChunk(chunk=chunks[int(idx)], score=float(score))
+            for score, idx in zip(scores[0], indices[0], strict=False)
+            if idx >= 0
         ]
-        logger.info("Loaded FAISS index (%d chunks) from %s", len(self._chunks), self.path)
-        return True
+
+    # --- persistence hooks -------------------------------------------------------
+    def _write_payload(self, directory: Path) -> int:
+        index, chunks = self._state
+        self._faiss.write_index(index, str(directory / "index.faiss"))
+        write_chunks(directory / "chunks.jsonl", chunks)
+        return len(chunks)
+
+    def _read_payload(self, directory: Path, meta: dict[str, Any] | None) -> None:
+        index = self._faiss.read_index(str(directory / "index.faiss"))
+        if index.d != self.dim:
+            raise IndexIncompatibleError(
+                f"Persisted FAISS dim {index.d} != configured dim {self.dim}."
+            )
+        chunks = read_chunks(directory / "chunks.jsonl")
+        check_count(directory, meta, int(index.ntotal), len(chunks))
+        with self._lock:
+            self._state = (index, tuple(chunks))
+
+    # --- helpers -----------------------------------------------------------------
+    def _validated(self, vectors: np.ndarray, chunks: list[Chunk]) -> np.ndarray:
+        normalized = self._normalize(vectors)
+        if normalized.shape[0] != len(chunks):
+            raise ValueError(
+                f"vectors/chunks length mismatch: {normalized.shape[0]} != {len(chunks)}"
+            )
+        if normalized.shape[1] != self.dim:
+            raise ValueError(f"expected dim {self.dim}, got {normalized.shape[1]}")
+        return normalized

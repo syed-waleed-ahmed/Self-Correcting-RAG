@@ -14,9 +14,7 @@ def _pipeline(settings, chat_client, chunks):
     store = NumpyVectorStore(dim=FAKE_DIM, path=settings.index_dir)
     if chunks:
         store.add(embedder.embed([c.text for c in chunks]), chunks)
-    container = build_container(
-        settings, embedder=embedder, store=store, chat_client=chat_client
-    )
+    container = build_container(settings, embedder=embedder, store=store, chat_client=chat_client)
     assert container.pipeline is not None
     return container.pipeline
 
@@ -54,7 +52,10 @@ def test_keeps_best_attempt_not_last(settings, sample_chunks):
 
     assert result.answer == "good first answer"
     assert result.evaluation_score == 0.5
-    assert result.attempts == 1
+    assert result.attempts == 2  # attempts executed (was: number of the winner)
+    assert result.best_attempt == 1  # the returned answer came from attempt 1
+    assert [a.score for a in result.attempt_history] == [0.5, 0.3]
+    assert result.evaluation_status == "below_threshold"
     assert client.calls.count("generator") == 2  # it did try to self-correct
 
 

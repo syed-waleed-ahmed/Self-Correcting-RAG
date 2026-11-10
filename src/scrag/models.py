@@ -8,8 +8,19 @@ and gives us free validation + JSON schema for the REST API.
 from __future__ import annotations
 
 import hashlib
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# Outcome of a single evaluator call. "error" means the evaluator could not be
+# reached; "invalid" means it answered but no score could be parsed. Neither is
+# a judgement about answer quality.
+EvaluationStatus = Literal["ok", "error", "invalid"]
+
+# Overall verdict for the answer a pipeline run returns. "passed" only means the
+# LLM judge's score cleared the configured threshold: a heuristic signal, not
+# verification.
+ResultStatus = Literal["passed", "below_threshold", "unavailable", "skipped"]
 
 
 class Chunk(BaseModel):
@@ -43,8 +54,11 @@ class Attempt(BaseModel):
 
     number: int
     answer: str
-    score: float
+    score: float | None = Field(
+        description="Evaluator score in [0, 1], or null when the evaluation failed."
+    )
     explanation: str
+    evaluation_status: EvaluationStatus = "ok"
 
 
 class PipelineResult(BaseModel):
@@ -52,9 +66,16 @@ class PipelineResult(BaseModel):
 
     query: str
     answer: str
-    evaluation_score: float
+    evaluation_score: float | None = Field(
+        description="Score of the selected attempt, or null if it could not be evaluated."
+    )
     evaluation_explanation: str
-    attempts: int
+    evaluation_status: ResultStatus  # required: never default to "passed"
+    attempts: int = Field(description="Number of generate/evaluate attempts executed.")
+    best_attempt: int = Field(
+        default=0, description="Number of the attempt whose answer was returned (0 if none)."
+    )
+    attempt_history: list[Attempt] = Field(default_factory=list)
     used_chunks: list[RetrievedChunk]
 
 
@@ -78,9 +99,12 @@ class ChunkView(BaseModel):
 class QueryResponse(BaseModel):
     query: str
     answer: str
-    evaluation_score: float
+    evaluation_score: float | None
     evaluation_explanation: str
-    attempts: int
+    evaluation_status: ResultStatus
+    attempts: int = Field(description="Number of generate/evaluate attempts executed.")
+    best_attempt: int = Field(description="Number of the attempt whose answer was returned.")
+    attempt_history: list[Attempt]
     used_chunks: list[ChunkView]
 
 
@@ -91,9 +115,20 @@ class IngestRequest(BaseModel):
 
 
 class IngestResponse(BaseModel):
-    documents: int
-    chunks: int
-    index_size: int
+    documents: int = Field(description="Documents found in the docs directory.")
+    chunks: int = Field(description="Chunks embedded and written during this run.")
+    index_size: int = Field(description="Total chunks in the index after this run.")
+    added_documents: int = 0
+    updated_documents: int = 0
+    skipped_documents: int = Field(default=0, description="Unchanged documents not re-embedded.")
+
+
+class ErrorResponse(BaseModel):
+    """Body of every non-validation error response."""
+
+    error: str = Field(description="Stable, machine-readable error code.")
+    detail: str = Field(description="Human-readable, client-safe message.")
+    request_id: str | None = Field(default=None, description="Correlates with server logs.")
 
 
 class HealthResponse(BaseModel):

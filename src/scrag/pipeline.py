@@ -5,12 +5,21 @@ Stages:
     2. Guardrail filter    — score and drop off-topic chunks (with a fallback so
                              an over-eager guardrail can't leave the generator
                              with nothing).
-    3. Generate + evaluate — loop up to ``max_self_correct_steps`` times, feeding
-                             the previous answer back for correction, and stop
-                             early once the evaluation clears the threshold.
+    3. Generate + evaluate — loop up to ``max_self_correct_steps`` times. Each
+                             retry gets the previous answer *and* the evaluator's
+                             explanation of what was wrong with it. The loop stops
+                             early once an evaluation clears the threshold.
 
-The loop keeps the *best-scoring* attempt, so self-correction can never return a
-worse answer than one it already produced.
+Selection rule: among attempts that were actually scored, return the
+highest-scoring one (earliest wins ties), so self-correction never returns a
+worse answer than one it already produced. An unscored attempt is returned only
+if no attempt could be scored.
+
+Failure rules:
+    * Evaluator failure (``status != "ok"``) is not a low grade. The loop stops,
+      because regenerating without a quality signal would be blind.
+    * Generator failure on the first attempt propagates as ``LLMError``. On a
+      retry it stops the loop and the best earlier attempt is returned.
 """
 
 from __future__ import annotations
@@ -18,11 +27,14 @@ from __future__ import annotations
 from .agents.evaluator import EvaluatorAgent
 from .agents.generator import GeneratorAgent
 from .agents.guardrail import GuardrailAgent
+from .errors import InvalidQueryError, LLMError
 from .logging_config import get_logger
-from .models import Attempt, PipelineResult, RetrievedChunk
+from .models import Attempt, PipelineResult, ResultStatus, RetrievedChunk
 from .retriever import Retriever
 
 logger = get_logger(__name__)
+
+NO_CONTEXT_ANSWER = "I could not find any relevant context to answer this question."
 
 
 class SelfCorrectingRAGPipeline:
@@ -37,6 +49,8 @@ class SelfCorrectingRAGPipeline:
         eval_threshold: float = 0.7,
         max_self_correct_steps: int = 2,
     ) -> None:
+        if max_self_correct_steps < 1:
+            raise ValueError("max_self_correct_steps must be at least 1")
         self.retriever = retriever
         self.guardrail = guardrail
         self.generator = generator
@@ -47,7 +61,7 @@ class SelfCorrectingRAGPipeline:
 
     def run(self, query: str, top_k: int | None = None) -> PipelineResult:
         if not query or not query.strip():
-            raise ValueError("query must not be empty")
+            raise InvalidQueryError("query must not be empty")
 
         # 1. Retrieval
         retrieved = self.retriever.retrieve(query, top_k or self.top_k)
@@ -61,41 +75,73 @@ class SelfCorrectingRAGPipeline:
         if not filtered:
             return PipelineResult(
                 query=query,
-                answer="I could not find any relevant context to answer this question.",
-                evaluation_score=0.0,
-                evaluation_explanation="No context was retrieved.",
+                answer=NO_CONTEXT_ANSWER,
+                evaluation_score=None,
+                evaluation_explanation="No context was retrieved, so no answer was evaluated.",
+                evaluation_status="skipped",
                 attempts=0,
+                best_attempt=0,
                 used_chunks=[],
             )
 
-        # 3 + 4. Generate → evaluate → self-correct, keeping the best attempt.
-        best: Attempt | None = None
-        previous_answer: str | None = None
-        for step in range(1, self.max_self_correct_steps + 1):
-            answer = self.generator.generate(query, filtered, previous_answer)
-            evaluation = self.evaluator.evaluate(query, answer, filtered)
-            logger.info("Attempt %d scored %.2f", step, evaluation.score)
-
-            if best is None or evaluation.score > best.score:
-                best = Attempt(
-                    number=step,
-                    answer=answer,
-                    score=evaluation.score,
-                    explanation=evaluation.explanation,
-                )
-            if evaluation.score >= self.eval_threshold:
-                break
-            previous_answer = answer
-
-        assert best is not None  # loop runs at least once
+        # 3. Generate → evaluate → self-correct.
+        history = self._self_correct(query, filtered)
+        best = self._select_best(history)
         return PipelineResult(
             query=query,
             answer=best.answer,
             evaluation_score=best.score,
             evaluation_explanation=best.explanation,
-            attempts=best.number,
+            evaluation_status=self._status(best),
+            attempts=len(history),
+            best_attempt=best.number,
+            attempt_history=history,
             used_chunks=self._sort_by_relevance(filtered),
         )
+
+    def _self_correct(self, query: str, chunks: list[RetrievedChunk]) -> list[Attempt]:
+        history: list[Attempt] = []
+        previous_answer: str | None = None
+        feedback: str | None = None
+        for step in range(1, self.max_self_correct_steps + 1):
+            try:
+                answer = self.generator.generate(query, chunks, previous_answer, feedback)
+            except LLMError:
+                if not history:
+                    raise
+                logger.warning("Generation failed on attempt %d; keeping earlier attempts", step)
+                break
+
+            evaluation = self.evaluator.evaluate(query, answer, chunks)
+            history.append(
+                Attempt(
+                    number=step,
+                    answer=answer,
+                    score=evaluation.score,
+                    explanation=evaluation.explanation,
+                    evaluation_status=evaluation.status,
+                )
+            )
+            if not evaluation.ok or evaluation.score is None:
+                logger.info("Attempt %d could not be evaluated (%s)", step, evaluation.status)
+                break
+            logger.info("Attempt %d scored %.2f", step, evaluation.score)
+            if evaluation.score >= self.eval_threshold:
+                break
+            previous_answer, feedback = answer, evaluation.explanation
+        return history
+
+    @staticmethod
+    def _select_best(history: list[Attempt]) -> Attempt:
+        scored = [a for a in history if a.score is not None]
+        if scored:
+            return max(scored, key=lambda a: a.score or 0.0)  # max() keeps the earliest tie
+        return history[-1]
+
+    def _status(self, attempt: Attempt) -> ResultStatus:
+        if attempt.score is None:
+            return "unavailable"
+        return "passed" if attempt.score >= self.eval_threshold else "below_threshold"
 
     @staticmethod
     def _sort_by_relevance(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
