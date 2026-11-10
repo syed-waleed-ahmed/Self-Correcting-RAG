@@ -15,6 +15,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from ..errors import LLMError, LLMRateLimitError
 from ..logging_config import get_logger
+from ..usage import current_ledger
 
 __all__ = ["ChatClient", "LLMError", "LLMRateLimitError", "OpenAICompatibleClient"]
 
@@ -106,5 +107,13 @@ class OpenAICompatibleClient:
                 raise LLMRateLimitError(f"LLM rate limited: {exc}") from exc
             raise LLMError(f"LLM request failed: {exc}") from exc
 
+        usage = getattr(response, "usage", None)
+        ledger = current_ledger()
+        if ledger is not None and usage is not None:
+            ledger.record(
+                model,
+                int(getattr(usage, "prompt_tokens", 0) or 0),
+                int(getattr(usage, "completion_tokens", 0) or 0),
+            )
         content = response.choices[0].message.content
         return strip_reasoning(content or "")

@@ -5,23 +5,22 @@ retrieves context, guardrails it for relevance, generates a grounded answer, and
 then evaluates and self-corrects its own output - exposed as a REST API, a CLI
 and a web UI.
 
-**Live demo:** the web UI publishes to
-https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ (GitHub Pages). The API
-it calls (Render Free) needs a one-time setup that isn't done yet: see
-[docs/deployment.md](docs/deployment.md).
+**Live demo:** https://scrag-web.onrender.com. The API is at
+https://scrag-api.onrender.com (docs at `/docs`). Both run on Render's free
+tier. The API sleeps after 15 idle minutes, so the first request can take about
+a minute.
 
-![SCRAG demo UI answering a sample question: the answer, the self-check panel
-with its attempt timeline, and the sources with cosine, BM25, RRF and guardrail
-scores](docs/images/demo-ui.png)
+![The live SCRAG demo answering a sample question: the answer is labelled as a
+recorded run, and the self-check panel shows a passed evaluation](docs/images/live-demo.jpg)
 
-*Screenshot of the `web/` UI running locally against the real API in demo mode
-(2026-11-10). The answer shown is a recorded run, labelled as such.*
+*The deployed demo, captured 2026-11-10. Sample questions are answered from
+recorded runs; "Run live" executes the pipeline.*
 
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
-![Tests](https://img.shields.io/badge/tests-161-brightgreen)
+![Tests](https://img.shields.io/badge/tests-187-brightgreen)
 
 ---
 
@@ -93,6 +92,13 @@ without touching orchestration logic.
   a 40-question golden dataset, with optional answer-level evaluation.
 - Formats: TXT, Markdown, HTML, CSV, JSON, and PDF/DOCX with the `docs` extra,
   with size and page limits.
+- Bounded agent workflow (`POST /agent/run`, `scrag agent`):
+  - a planner chooses tools from a typed, permissioned registry (document
+    search, a safe calculator, and an approval-gated re-index);
+  - tools run in parallel with timeouts and audit records;
+  - a writer answers from delimited, untrusted evidence with citations;
+  - the evaluator verifies the answer and can trigger one correction;
+  - hard limits on steps, LLM calls and time, with token usage reported per run.
 - Public demo mode: per-client rate limits, a global daily budget of live LLM
   queries, recorded sample answers (labelled as cached), a retrieval-only
   `/search` endpoint, and a Next.js web UI (`web/`).
@@ -113,7 +119,7 @@ without touching orchestration logic.
 - Typed configuration (pydantic-settings), structured logging (optional JSON)
   with per-request IDs, robust output parsing (decimals, percentages,
   fractions), and a sanitized error contract that never leaks internals.
-- Fully tested: 161 tests run with fakes (no network, no torch) and in CI across
+- Fully tested: 187 tests run with fakes (no network, no torch) and in CI across
   Python 3.10-3.12, plus lint, format and type checks. Dockerfile and
   docker-compose included.
 
@@ -218,6 +224,8 @@ work.
 | GET    | `/demo`   |  no  | Sample questions, demo limits, today's budget     |
 | POST   | `/search` | yes  | Retrieval only (no LLM): ranked chunks with scores |
 | POST   | `/query`  | yes  | Run the full self-correcting pipeline for a query |
+| POST   | `/agent/run` | yes | Bounded agent: plan, tools, write, verify       |
+| GET    | `/agent/tools` | no | Tool catalog with permissions and input schemas |
 | POST   | `/ingest` | yes  | (Re)build the index from the configured docs dir  |
 | GET    | `/docs`   |  no  | Interactive OpenAPI (Swagger) UI                  |
 
@@ -305,6 +313,8 @@ src/scrag/
   sparse.py            in-process BM25 index + Reciprocal Rank Fusion
   evaluation.py        golden-set retrieval/answer metrics (`scrag eval`)
   demo.py              rate limiter, daily budget, answer cache
+  orchestration/       tool registry + bounded agent workflow
+  usage.py             per-run LLM token accounting
   ingest.py            load -> chunk -> embed -> index
   pipeline.py          self-correcting orchestrator (keeps best attempt)
   container.py         composition root / dependency wiring
@@ -328,7 +338,7 @@ python scripts/verify.py        # lint + format check + mypy + tests (what CI ru
 python scripts/verify.py --fix  # apply ruff fixes/formatting first
 ```
 
-The 161 tests run in a few seconds with no network or API key. The 9 FAISS
+The 187 tests run in a few seconds with no network or API key. The 9 FAISS
 tests are skipped unless `faiss-cpu` is installed; CI runs them in a separate
 job.
 

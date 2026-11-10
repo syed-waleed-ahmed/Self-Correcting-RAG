@@ -135,6 +135,15 @@ class QueryResponse(BaseModel):
     cache_source: Literal["sample", "recent"] | None = None
 
 
+class AgentRunRequest(BaseModel):
+    task: str = Field(min_length=1, max_length=1000, description="What the agent should do.")
+    approved_tools: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Sensitive tools a human approved for this run (operator only on the demo).",
+    )
+
+
 class SearchResponse(BaseModel):
     query: str
     retrieval_mode: str

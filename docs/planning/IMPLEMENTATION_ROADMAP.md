@@ -31,8 +31,8 @@ the **owner's decision**:
 | 0 | Repository audit and planning documents | **Done** |
 | 1 | Core reliability defects | **Done** (see below) |
 | 2 | Advanced RAG foundation + minimal eval harness | **Done** (pgvector moved to Phase 4, ADR 0006) |
-| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Built; awaiting account setup** (see below) |
-| 3 | Agent framework and tool registry | Not started |
+| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
+| 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
 | 4 | Persistence, auth, sessions, durable jobs | Not started |
 | 5 | Frontend | Not started (a minimal page ships in 2b) |
 | 6 | Observability and evaluation | Not started |
@@ -151,7 +151,25 @@ Acceptance:
 - A smoke-test script passes against the live URL.
 - Evidence (date, commit, output) is recorded in `DEPLOYMENT_PLAN.md`.
 
-## Phase 3: Agents and tools
+## Phase 3: Agents and tools (done 2026-11-10)
+
+Delivered:
+- tool registry with schemas, permissions, timeouts and audit records;
+- three tools: `document_search`, a safe `calculator` and an approval-gated
+  `reindex_documents`;
+- bounded plan -> execute -> write -> verify workflow with one correction;
+- per-run token accounting;
+- `/agent/run`, `/agent/tools` and `scrag agent`;
+- 26 tests;
+- verified live on Groq: a two-tool plan that passed verification and used
+  2,109 tokens.
+
+Known limitation: plan steps are independent, so a step can't consume another
+step's output. In the live run the planner wrote the calculator input from its
+own knowledge, although the final answer was grounded in cited evidence.
+Dependent steps (`$ref` to earlier outputs) are the natural next increment.
+
+Original scope:
 
 Scope:
 - `Tool` and `Agent` contracts (typed I/O, budgets, timeouts, retries, audit

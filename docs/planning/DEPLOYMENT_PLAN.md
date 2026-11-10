@@ -89,7 +89,7 @@ Run these against the live API with `scripts/smoke.py --base-url ...`:
 
 | Date | Commit | Target | Smoke test result | Notes |
 | --- | --- | --- | --- | --- |
-| none yet | | | | |
+| 2026-11-10 | `1e6cdbb` (branch `feat/phase-2-retrieval-eval`) | Render Free: https://scrag-api.onrender.com + https://scrag-web.onrender.com | `scripts/smoke.py --live-query`: ALL PASSED (the sample query was served from the recorded run). One uncached live query passed evaluation in 2.5 s | The first deploy failed 5 smoke checks: the operator token locked out anonymous reads. Fixed in `1e6cdbb`. The UI was verified in Chrome against the live API |
 
 ## 7. Rollback
 

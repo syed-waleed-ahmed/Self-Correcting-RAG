@@ -22,6 +22,14 @@ from .errors import IngestInProgressError
 from .ingest import IngestStats, ingest
 from .llm.client import ChatClient, OpenAICompatibleClient
 from .logging_config import get_logger
+from .orchestration import (
+    AgentWorkflow,
+    ToolRegistry,
+    WorkflowLimits,
+    calculator_tool,
+    document_search_tool,
+    reindex_tool,
+)
 from .pipeline import SelfCorrectingRAGPipeline
 from .retriever import HybridRetriever, Retriever
 from .vectorstore import create_vector_store
@@ -38,6 +46,8 @@ class Container:
     chunker: Chunker
     retriever: Retriever
     pipeline: SelfCorrectingRAGPipeline | None  # None when no LLM key configured
+    agent: AgentWorkflow | None = None  # None when no LLM key configured
+    tools: ToolRegistry | None = None
     answers: AnswerCache | None = None
     rate_limiter: RateLimiter | None = None  # demo mode only
     budget: DailyBudget | None = None  # demo mode only
@@ -158,6 +168,10 @@ def build_container(
     else:
         logger.warning("No LLM key configured — /query will be unavailable.")
 
+    tools = ToolRegistry()
+    tools.register(document_search_tool(lambda q, k: retriever.retrieve(q, k)))
+    tools.register(calculator_tool())
+
     answers = AnswerCache(
         ttl_seconds=settings.answer_cache_ttl_seconds, max_entries=settings.answer_cache_size
     )
@@ -168,13 +182,14 @@ def build_container(
     except (OSError, ValueError, KeyError) as exc:
         logger.warning("Could not load sample answers from %s: %s", settings.samples_path, exc)
 
-    return Container(
+    container = Container(
         settings=settings,
         embedder=embedder,
         store=store,
         chunker=chunker,
         retriever=retriever,
         pipeline=pipeline,
+        tools=tools,
         answers=answers,
         rate_limiter=(
             RateLimiter(settings.demo_rate_limit_per_minute, settings.demo_rate_limit_burst)
@@ -183,3 +198,24 @@ def build_container(
         ),
         budget=DailyBudget(settings.demo_daily_query_budget) if settings.demo_mode else None,
     )
+    # Sensitive, state-changing tool: registered everywhere (so the approval
+    # flow is visible) but disabled on the public demo.
+    tools.register(
+        reindex_tool(
+            lambda reset: container.run_ingest(reset=reset), enabled=not settings.demo_mode
+        )
+    )
+    if client is not None and pipeline is not None:
+        container.agent = AgentWorkflow(
+            client,
+            settings.generator_model,
+            tools,
+            pipeline.evaluator,
+            limits=WorkflowLimits(
+                max_steps=settings.agent_max_steps,
+                max_llm_calls=settings.agent_max_llm_calls,
+                timeout_s=settings.agent_timeout_s,
+            ),
+            eval_threshold=settings.eval_threshold,
+        )
+    return container

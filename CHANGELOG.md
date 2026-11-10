@@ -6,6 +6,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Phase 3: agents and tools)
+
+- **Bounded agent workflow** (`POST /api/v1/agent/run`, `scrag agent`):
+  - stages: plan, then approve, then execute (parallel), then write, then
+    verify, with at most one correction;
+  - hard limits on steps (4), LLM calls (6) and wall time (90 s);
+  - the full trace and real provider token usage are returned per run;
+  - unusable plans fall back to a knowledge-base search.
+- **Tool registry** (`GET /api/v1/agent/tools`):
+  - typed pydantic input schemas, `safe`/`sensitive` permissions, timeouts and
+    audit records;
+  - tool failures are recorded, never raised;
+  - tools: `document_search`, `calculator` (whitelisted-AST arithmetic, never
+    `eval`) and `reindex_documents` (sensitive: needs explicit approval, and is
+    disabled on the public demo).
+- **Prompt-injection defenses by construction:**
+  - the planner never sees retrieved text;
+  - evidence reaches the writer inside delimiters, marked untrusted and
+    escaped against tag injection;
+  - the writer has no tool access.
+- **`UsageLedger`.** `OpenAICompatibleClient` records provider-reported tokens
+  for every call made inside a tracked context.
+- **Demo budget for agent runs.** An agent run costs `SCRAG_AGENT_BUDGET_COST`
+  units (default 2). The units are refunded if the run ends awaiting approval
+  or fails.
+
+### Fixed
+
+- Demo mode: the read endpoints (`/search`, `/query`, `/agent/run`) stay public
+  when an operator token is configured. The token only protects `/ingest`.
+  The first live deploy's smoke test caught this.
+
+### Deployment
+
+- Live on Render's free tier:
+  - API https://scrag-api.onrender.com;
+  - web UI https://scrag-web.onrender.com (a static site in the same Blueprint).
+- A GitHub Pages workflow also publishes the UI from `main`.
+
 ## [0.2.0] - 2026-11-10
 
 Phase 2 (retrieval and evaluation) and Phase 2b (deployable demo) build on

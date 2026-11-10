@@ -21,6 +21,7 @@ from ..errors import (
     ScragError,
 )
 from ..models import (
+    AgentRunRequest,
     ChunkView,
     DemoInfo,
     ErrorResponse,
@@ -34,6 +35,7 @@ from ..models import (
     SearchRequest,
     SearchResponse,
 )
+from ..orchestration import AgentRunResult
 
 router = APIRouter()
 
@@ -251,6 +253,46 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
             response.model_dump(exclude={"cached", "cached_at", "cache_source"}),
         )
     return response
+
+
+@router.get("/agent/tools", tags=["agent"])
+def agent_tools(request: Request) -> list[dict[str, Any]]:
+    """The tool catalog: names, descriptions, permission levels and input schemas."""
+    tools = _container(request).tools
+    return tools.specs() if tools else []
+
+
+@router.post(
+    "/agent/run",
+    response_model=AgentRunResult,
+    tags=["agent"],
+    dependencies=[Depends(require_auth_unless_demo)],
+    responses=_ERRORS,
+)
+def agent_run(request: Request, body: AgentRunRequest) -> AgentRunResult:
+    """Plan -> run tools -> write -> verify, within hard step/LLM/time limits."""
+    c = _container(request)
+    if c.agent is None:
+        raise LLMNotConfiguredError()
+    task = body.task.strip()
+    _demo_limits(request, task)
+    c.refresh_index()
+    # On the public demo only the operator may approve sensitive tools.
+    approved = frozenset(body.approved_tools)
+    if c.settings.demo_mode and _token_ok(request) is not True:
+        approved = frozenset()
+    cost = c.settings.agent_budget_cost
+    if c.budget is not None:
+        c.budget.consume(cost)
+    try:
+        result = c.agent.run(task, approved=approved)
+    except ScragError:
+        if c.budget is not None:
+            c.budget.refund(cost)
+        raise
+    if c.budget is not None and result.status != "completed":
+        c.budget.refund(cost)  # nothing was answered (approval pending or failure)
+    return result
 
 
 @router.post(

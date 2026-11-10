@@ -11,8 +11,9 @@ what could change that. Never add a payment method to any of these services.
 
 | Part | URL | Status |
 | --- | --- | --- |
-| Web UI | https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ | Pages enabled; publishes on every push to `main` that touches `web/` |
-| API | https://scrag-api.onrender.com (expected) | Needs the one-time Render setup below |
+| Web UI | https://scrag-web.onrender.com | **Live** (Render static site from the Blueprint) |
+| API | https://scrag-api.onrender.com | **Live** (Render Free, deployed 2026-11-10) |
+| Web UI (mirror) | https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ | Publishes from `main` once PRs #1/#2 are merged |
 
 ## 1. API on Render (one time, about 5 minutes)
 

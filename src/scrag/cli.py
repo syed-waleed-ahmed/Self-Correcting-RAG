@@ -121,6 +121,43 @@ def info() -> None:
     typer.echo(f"Index dir       : {settings.index_dir}")
 
 
+@app.command()
+def agent(
+    task: str = typer.Argument(..., help="What the agent should do."),
+    approve: list[str] = typer.Option(
+        [], "--approve", help="Approve a sensitive tool for this run (repeatable)."
+    ),
+) -> None:
+    """Run the bounded agent workflow: plan, use tools, write, verify."""
+    settings = _bootstrap()
+    container = build_container(settings)
+    if container.agent is None:
+        _fail("No LLM key configured. Set GROQ_API_KEY (or SCRAG_LLM_API_KEY).")
+    container.load_index()
+    result = container.agent.run(task, approved=frozenset(approve))
+
+    typer.secho(f"\n=== Plan ({result.plan_source}) ===", fg=typer.colors.CYAN, bold=True)
+    for i, step in enumerate(result.plan, 1):
+        typer.echo(f"{i}. {step.tool} {step.input}  - {step.purpose}")
+    if result.status == "awaiting_approval":
+        names = ", ".join(sorted({s.tool for s in result.pending_approval}))
+        _fail(f"\nNeeds human approval for: {names}. Re-run with --approve <tool>.")
+    typer.secho("\n=== Tool calls ===", fg=typer.colors.CYAN, bold=True)
+    for executed in result.steps:
+        call = executed.call
+        typer.echo(f"{executed.index}. {call.tool}: {call.status} ({call.latency_ms} ms)")
+    typer.secho(f"\n=== Answer ({result.status}) ===", fg=typer.colors.GREEN, bold=True)
+    typer.echo(result.answer or result.error or "")
+    if result.verification:
+        v = result.verification
+        score = "n/a" if v.score is None else f"{v.score:.2f}"
+        typer.echo(
+            f"\nVerification: {score} ({'passed' if v.passed else v.status})  |  "
+            f"attempts: {result.attempts}"
+        )
+    typer.echo(f"Usage: {result.usage}")
+
+
 @app.command("eval")
 def evaluate(
     golden: Path = typer.Option(Path("data/eval/golden.jsonl"), help="Golden dataset (JSONL)."),

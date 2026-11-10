@@ -83,17 +83,17 @@ class DailyBudget:
         if today != self._day:
             self._day, self._used = today, 0
 
-    def consume(self) -> None:
+    def consume(self, units: int = 1) -> None:
         with self._lock:
             self._roll()
-            if self._used >= self.limit:
+            if self._used + units > self.limit:
                 raise DemoBudgetExhaustedError(retry_after=self._seconds_until_reset())
-            self._used += 1
+            self._used += units
 
-    def refund(self) -> None:
-        """Give a unit back (the run failed before spending provider quota)."""
+    def refund(self, units: int = 1) -> None:
+        """Give units back (the run failed before producing an answer)."""
         with self._lock:
-            self._used = max(0, self._used - 1)
+            self._used = max(0, self._used - units)
 
     def status(self) -> dict[str, Any]:
         with self._lock:

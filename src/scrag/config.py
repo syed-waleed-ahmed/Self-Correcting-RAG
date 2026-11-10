@@ -97,6 +97,14 @@ class Settings(BaseSettings):
     # Bounded on purpose: each step costs two LLM calls.
     max_self_correct_steps: int = Field(default=2, ge=1, le=10)
 
+    # --- Agent workflow (bounded) ------------------------------------------
+    agent_max_steps: int = Field(default=4, ge=1, le=8)
+    agent_max_llm_calls: int = Field(default=6, ge=3, le=12)
+    agent_timeout_s: float = Field(default=90.0, gt=0, le=600)
+    # Live demo budget units charged per agent run (it makes more LLM calls
+    # than a single /query).
+    agent_budget_cost: int = Field(default=2, ge=1, le=10)
+
     # --- API / server -----------------------------------------------------
     api_host: str = "0.0.0.0"
     api_port: int = Field(default=8000, gt=0, lt=65536)

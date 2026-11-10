@@ -15,6 +15,7 @@ hiccup can't starve the generator of context and no fake score is reported.
 
 from __future__ import annotations
 
+import contextvars
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
@@ -122,7 +123,11 @@ class GuardrailAgent:
         if scores is None:
             workers = max(1, min(self.max_workers, len(retrieved)))
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                scores = list(pool.map(lambda rc: self.score(query, rc.chunk.text), retrieved))
+                futures = [
+                    pool.submit(contextvars.copy_context().run, self.score, query, rc.chunk.text)
+                    for rc in retrieved
+                ]
+                scores = [f.result() for f in futures]
 
         kept: list[RetrievedChunk] = []
         for rc, score in zip(retrieved, scores, strict=True):
