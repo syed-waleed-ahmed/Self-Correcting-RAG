@@ -5,9 +5,10 @@ retrieves context, guardrails it for relevance, generates a grounded answer, and
 then evaluates and self-corrects its own output - exposed as a REST API, a CLI
 and a web UI.
 
-**Live demo:** not deployed yet. Everything needed is in the repository: see
-[docs/deployment.md](docs/deployment.md) for the free-tier deployment (Render +
-Vercel, about 10 minutes).
+**Live demo:** the web UI publishes to
+https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ (GitHub Pages). The API
+it calls (Render Free) needs a one-time setup that isn't done yet: see
+[docs/deployment.md](docs/deployment.md).
 
 ![SCRAG demo UI answering a sample question: the answer, the self-check panel
 with its attempt timeline, and the sources with cosine, BM25, RRF and guardrail
