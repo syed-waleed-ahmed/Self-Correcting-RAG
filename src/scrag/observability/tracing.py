@@ -25,8 +25,15 @@ from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_tracer: Any = None
-_provider: Any = None
+
+class _State:
+    """The active tracer and its provider (both None while tracing is off)."""
+
+    tracer: Any = None
+    provider: Any = None
+
+
+_state = _State()
 
 
 def configure_tracing(
@@ -38,7 +45,6 @@ def configure_tracing(
 ) -> bool:
     """Enable tracing. ``span_exporter`` (e.g. an in-memory exporter) overrides
     ``exporter`` and exports synchronously. Returns whether tracing is on."""
-    global _tracer, _provider
     shutdown_tracing()
     if exporter == "none" and span_exporter is None:
         return False
@@ -71,36 +77,36 @@ def configure_tracing(
     else:
         logger.warning("Unknown SCRAG_OTEL_EXPORTER %r; tracing stays off", exporter)
         return False
-    _provider = provider
-    _tracer = provider.get_tracer("scrag", version or None)
+    _state.provider = provider
+    _state.tracer = provider.get_tracer("scrag", version or None)
     logger.info("Tracing enabled (exporter=%s)", "custom" if span_exporter else exporter)
     return True
 
 
 def shutdown_tracing() -> None:
     """Flush and stop the current provider, if any (tracing is then off)."""
-    global _tracer, _provider
-    if _provider is not None:
+    if _state.provider is not None:
         try:
-            _provider.shutdown()
+            _state.provider.shutdown()
         except Exception:  # noqa: BLE001 - never fail shutdown over telemetry
             logger.warning("Tracing shutdown failed", exc_info=True)
-    _tracer = None
-    _provider = None
+    _state.tracer = None
+    _state.provider = None
 
 
 def tracing_enabled() -> bool:
-    return _tracer is not None
+    return _state.tracer is not None
 
 
 @contextmanager
 def span(name: str, **attributes: Any) -> Iterator[Any]:
     """A span named ``name`` (no-op when tracing is off). Exceptions are recorded."""
-    if _tracer is None:
+    tracer = _state.tracer
+    if tracer is None:
         yield None
         return
     clean = {k.replace("__", "."): v for k, v in attributes.items() if v is not None}
-    with _tracer.start_as_current_span(name, attributes=clean) as current:
+    with tracer.start_as_current_span(name, attributes=clean) as current:
         yield current
 
 

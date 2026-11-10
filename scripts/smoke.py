@@ -58,7 +58,9 @@ def main() -> int:
             failures.append(name)
 
     deadline = time.monotonic() + args.wake_timeout
-    status, health, headers = 0, None, {}
+    status: int = 0
+    health: Any = None
+    headers: dict[str, str] = {}
     while time.monotonic() < deadline:
         try:
             status, health, headers = call(base, "GET", "/api/v1/health")
