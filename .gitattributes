@@ -1,6 +1,27 @@
+# Normalize line endings: text files are stored with LF in the repository and
+# checked out natively, so a Windows checkout and the Linux image build see the
+# same bytes.
+* text=auto
+
 # Keep sample documents, golden set and recorded demo answers byte-identical
 # across platforms: their content hashes must match between a Windows checkout
 # and the Linux image build (recorded answers are keyed by a corpus fingerprint).
 data/docs/** text eol=lf
 data/eval/** text eol=lf
 data/demo/** text eol=lf
+
+# Shell scripts and container/CI files must keep LF even on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# Binary assets: never diff or normalize.
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.ico binary
+*.pdf binary
+*.npy binary
+
+# Generated files: collapse in diffs and keep out of language statistics.
+web/package-lock.json linguist-generated=true -diff
+graphify-out/** linguist-generated=true
