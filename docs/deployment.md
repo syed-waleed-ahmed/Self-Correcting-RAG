@@ -14,7 +14,7 @@ what could change that. Never add a payment method to any of these services.
 | Web UI | https://scrag-web.onrender.com | **Live** (Render static site from the Blueprint) |
 | API | https://scrag-api.onrender.com | **Live** (Render Free, deployed 2026-11-10) |
 | Web UI (mirror) | https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ | Publishes from `main` once PRs #1/#2 are merged |
-| Database (optional) | Neon Free | Not connected yet: sessions, uploads and history answer `503 persistence_disabled` until it is |
+| Database | Neon Free, Frankfurt (created via the Vercel Neon integration) | **Live** (2026-11-10): sessions, uploads and history enabled |
 
 ## 1. API on Render (one time, about 5 minutes)
 

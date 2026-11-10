@@ -89,6 +89,7 @@ Run these against the live API with `scripts/smoke.py --base-url ...`:
 
 | Date | Commit | Target | Smoke test result | Notes |
 | --- | --- | --- | --- | --- |
+| 2026-11-10 | `c8ef430` (branch `feat/phase-4-persistence`) | Render Free + Neon Free (Frankfurt) | Phase 4 live check: `/health` reported `persistence: ok` after the worker migrated on startup. Session 0.2 s; upload 0.2 s, ingestion job 7.9 s; a correct session-scoped answer (evaluation 1.0) in 2.4 s with history saved; a second session got 404 for the document and conversation and an empty list; admin stats returned 401 without the token; a deleted session's token returned 401. `scripts/smoke.py`: ALL PASSED | The Blueprint branch moved from `feat/phase-2-retrieval-eval` to `feat/phase-4-persistence` (move it to `main` after the merges). `SCRAG_DATABASE_URL` was set by the owner in the Render dashboard |
 | 2026-11-10 | `1e6cdbb` (branch `feat/phase-2-retrieval-eval`) | Render Free: https://scrag-api.onrender.com + https://scrag-web.onrender.com | `scripts/smoke.py --live-query`: ALL PASSED (the sample query was served from the recorded run). One uncached live query passed evaluation in 2.5 s | The first deploy failed 5 smoke checks: the operator token locked out anonymous reads. Fixed in `1e6cdbb`. The UI was verified in Chrome against the live API |
 
 ## 7. Rollback

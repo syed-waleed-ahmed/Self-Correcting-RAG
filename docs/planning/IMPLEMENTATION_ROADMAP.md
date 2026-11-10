@@ -33,8 +33,7 @@ the **owner's decision**:
 | 2 | Advanced RAG foundation + minimal eval harness | **Done** (pgvector moved to Phase 4, ADR 0006) |
 | 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
 | 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
-| 4 | Persistence and identity | **Done** in code and CI (2026-11-10); live once a free database is connected |
-| 4 | Persistence, auth, sessions, durable jobs | Not started |
+| 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
 | 5 | Frontend | Not started (a minimal page ships in 2b) |
 | 6 | Observability and evaluation | Not started |
 | 7 | Security hardening, quotas, load tests | Not started |
@@ -219,8 +218,18 @@ Evidence:
   - the session-scoped answer was correct and passed evaluation;
   - another session got 404 for the document and the conversation;
   - the persisted budget kept its count across a server restart.
-- **Not live yet:** the public deployment has no database until a free Neon
-  project's URL is set on Render (`docs/deployment.md`, section 2).
+- **Live (2026-11-10, commit `c8ef430`):**
+  - Setup: Render Free API with a Neon Free database in Frankfurt, created
+    through the Vercel Neon integration with Auth and Realtime off.
+  - Database startup: the worker connected and migrated on its own, and
+    `/health` reported `persistence: ok`.
+  - Timings: creating a session took 0.2 s; an upload took 0.2 s and its
+    ingestion job finished in 7.9 s on 0.1 CPU; a session-scoped answer was
+    correct and passed evaluation in 2.4 s.
+  - Results: history was saved; another session got 404 for the document
+    and the conversation; admin stats returned 401 without the operator
+    token; deleting the session revoked its token.
+  - `scripts/smoke.py` passed every check.
 
 Original scope:
 

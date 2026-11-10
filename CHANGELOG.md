@@ -92,6 +92,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - API https://scrag-api.onrender.com;
   - web UI https://scrag-web.onrender.com (a static site in the same Blueprint).
 - A GitHub Pages workflow also publishes the UI from `main`.
+- Phase 4 is live with a Neon Free Postgres database in Frankfurt
+  (`persistence: ok`), verified end to end on the deployment.
 
 ## [0.2.0] - 2026-11-10
 
