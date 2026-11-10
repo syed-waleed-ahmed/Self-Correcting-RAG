@@ -19,6 +19,12 @@ updates:
     groups:
       web-minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Node type definitions must match the Node major the site builds and
+      # deploys on (22: NODE_VERSION in render.yaml, node-version in CI).
+      # Bump all three together when moving to a new Node LTS.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
