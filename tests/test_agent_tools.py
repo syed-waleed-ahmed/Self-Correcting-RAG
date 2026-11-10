@@ -363,4 +363,7 @@ def test_web_fetch_tool_is_disabled_without_an_allow_list(settings, sample_chunk
     with TestClient(create_app(settings, container=container)) as client:
         tools = {t["name"]: t for t in client.get("/api/v1/agent/tools").json()}
     assert tools["web_fetch"]["enabled"] is True
-    assert "docs.example.com" in tools["web_fetch"]["description"]
+    assert tools["web_fetch"]["description"] == (
+        "Fetch the text of one web page (read-only GET) from an allow-listed host: "
+        "docs.example.com."
+    )
