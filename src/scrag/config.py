@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # (most of a 512 MB free instance's headroom), batch 8 added 65 MB, and it was
     # no slower. Uploads on the demo are embedded at runtime (docs/load-testing.md).
     embedding_batch_size: int = Field(default=8, gt=0)
+    # ONNX Runtime threads for the fastembed backend (unset: one per core, the
+    # lowest latency on an idle multi-core machine). On a CPU-quota host such as
+    # Render Free (0.1 CPU) use 1: per query it used 3.2 ms of CPU against 12.5 ms
+    # with the default, for 1 ms more wall time. The Docker image sets 1.
+    embedding_threads: int | None = Field(default=None, ge=1, le=64)
 
     # --- Chunking ---------------------------------------------------------
     chunk_size: int = Field(default=1000, gt=0, description="Chunk size in characters.")

@@ -185,6 +185,26 @@ two runs:
 - **Ten users acting every 1-3 s is far busier than the demo's real traffic,**
   whose rate limit allows each visitor 6 expensive requests a minute.
 
+## CPU: one ONNX Runtime thread on a CPU-quota host
+
+Where does the free-tier CPU go? Embedding the query dominates `/search`.
+ONNX Runtime runs one thread per core by default, and its threads spin while
+waiting, so a query that takes 2 ms of wall time costs several times that in
+CPU. On a host that is billed or throttled by CPU time, that is the scarce
+resource. Measured locally (fastembed, all-MiniLM-L6-v2, 300 queries):
+
+| ONNX Runtime threads | CPU per query | Wall per query | CPU / wall for 8 long chunks |
+| --- | ---: | ---: | --- |
+| default (one per core) | 12.5 ms | 2.1 ms | 656 / 107 ms |
+| **1** | **3.2 ms** | 3.1 ms | **331** / 321 ms |
+| 2 | 4.5 ms | 2.3 ms | 353 / 172 ms |
+
+The deployment image now sets `SCRAG_EMBEDDING_THREADS=1`: about a quarter of
+the CPU per query, for about 1 ms more wall time when the CPU is free. Local
+development keeps the default, which is faster on an idle multi-core machine.
+
+CPU_SECTION_CI
+
 ## Running it
 
 ```bash

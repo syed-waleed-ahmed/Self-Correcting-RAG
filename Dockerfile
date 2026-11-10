@@ -4,7 +4,10 @@
 # - embeddings run on fastembed (ONNX Runtime), not PyTorch: same vectors, about
 #   half the memory, and a much smaller image;
 # - the embedding model and the sample knowledge-base index are baked in at
-#   build time, because free hosts wipe their local disk on every restart.
+#   build time, because free hosts wipe their local disk on every restart;
+# - ONNX Runtime uses one thread: on a CPU-quota host (Render Free: 0.1 CPU) a
+#   thread per core spends about 4x the CPU per query for the same answer
+#   (docs/load-testing.md).
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -12,7 +15,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HF_HUB_DISABLE_TELEMETRY=1 \
     SCRAG_EMBEDDING_BACKEND=fastembed \
-    SCRAG_EMBEDDING_CACHE_DIR=/app/models
+    SCRAG_EMBEDDING_CACHE_DIR=/app/models \
+    SCRAG_EMBEDDING_THREADS=1
 
 WORKDIR /app
 

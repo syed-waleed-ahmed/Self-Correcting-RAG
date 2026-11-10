@@ -58,6 +58,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the memory its largest batch needed: a runtime ingest at batch 32 added
   229 MB for good, which on the demo's 512 MB instance one upload could
   trigger. At batch 8 it adds 65 MB, at the same speed (`docs/load-testing.md`).
+- **The deployment image runs ONNX Runtime with one thread**
+  (`SCRAG_EMBEDDING_THREADS=1`, a new setting). On a CPU-quota host, one
+  thread per core spent 12.5 ms of CPU per query embedding against 3.2 ms with
+  one, for about 1 ms more wall time.
 - **`scripts/smoke.py` re-ingested the corpus of any non-demo server it
   tested.** It now only sends `/ingest` to the demo, to check the call is
   refused. It also gained `--timeout` for cold, slow instances.

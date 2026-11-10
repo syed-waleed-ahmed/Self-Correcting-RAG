@@ -54,3 +54,35 @@ def test_embed_checked_rejects_wrong_row_count():
 
     with pytest.raises(EmbeddingDimensionError):
         embed_checked(ShortEmbedder(), ["a", "b"], expected_dim=ShortEmbedder().dim)
+
+
+def test_fastembed_threads_reach_onnx_runtime(monkeypatch):
+    """SCRAG_EMBEDDING_THREADS is passed to fastembed (the image sets 1, see config)."""
+    from scrag.config import Settings
+    from scrag.embeddings import FastEmbedEmbedder, create_embedder
+
+    seen: dict[str, object] = {}
+
+    class FakeTextEmbedding:
+        def __init__(self, name, cache_dir=None, threads=None):
+            seen.update(name=name, threads=threads)
+
+        def embed(self, texts, batch_size=None):
+            seen["batch_size"] = batch_size
+            return iter(np.ones((len(texts), 384), dtype="float32"))
+
+    module = types.ModuleType("fastembed")
+    module.TextEmbedding = FakeTextEmbedding  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fastembed", module)
+
+    settings = Settings(_env_file=None, embedding_backend="fastembed", embedding_threads=1)
+    embedder = create_embedder(settings)
+    assert isinstance(embedder, FastEmbedEmbedder)
+    assert embedder.embed(["a query"]).shape == (1, 384)
+    assert seen == {
+        "name": "sentence-transformers/all-MiniLM-L6-v2",
+        "threads": 1,
+        "batch_size": 8,  # the default batch size (see config: memory)
+    }
+    default = create_embedder(Settings(_env_file=None, embedding_backend="fastembed"))
+    assert isinstance(default, FastEmbedEmbedder) and default.threads is None
