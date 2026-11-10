@@ -9,9 +9,7 @@ from .conftest import FakeChatClient
 
 
 def _rc(text: str, score: float = 0.5) -> RetrievedChunk:
-    return RetrievedChunk(
-        chunk=Chunk(id="x", source="s.txt", text=text, position=0), score=score
-    )
+    return RetrievedChunk(chunk=Chunk(id="x", source="s.txt", text=text, position=0), score=score)
 
 
 # --- parsing helpers -------------------------------------------------------
@@ -65,4 +63,7 @@ def test_evaluator_handles_unparseable_output():
     client = FakeChatClient(evaluator="totally not json")
     agent = EvaluatorAgent(client, model="m")
     result = agent.evaluate("q", "answer", [_rc("ctx")])
-    assert result.score == 0.0
+    # Unparseable output is not a quality judgement: no fabricated 0.0 score.
+    assert result.score is None
+    assert result.status == "invalid"
+    assert not result.ok

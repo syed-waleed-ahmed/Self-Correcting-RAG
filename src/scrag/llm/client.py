@@ -2,22 +2,36 @@
 
 Works with Groq (default), OpenAI, or a local vLLM/Ollama-compatible server by
 changing ``base_url`` and ``model``. The underlying ``openai`` SDK already
-handles connection pooling and retries with exponential backoff; we configure
-those and wrap provider errors in a single :class:`LLMError` so callers don't
-depend on the SDK's exception types.
+handles connection pooling and retries with exponential backoff (including on
+HTTP 429); we configure those and wrap provider errors in :class:`LLMError` (or
+:class:`LLMRateLimitError` for quota/rate limits) so callers don't depend on the
+SDK's exception types.
 """
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+import re
+from typing import Any, Protocol, runtime_checkable
 
+from ..errors import LLMError, LLMRateLimitError
 from ..logging_config import get_logger
+
+__all__ = ["ChatClient", "LLMError", "LLMRateLimitError", "OpenAICompatibleClient"]
 
 logger = get_logger(__name__)
 
+# Some reasoning models (e.g. Qwen3 in "raw" mode) inline their reasoning as
+# <think>...</think> before the answer; it must never reach parsers or users.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
-class LLMError(RuntimeError):
-    """Raised when an LLM request ultimately fails (after retries)."""
+
+def strip_reasoning(content: str) -> str:
+    """Remove inline ``<think>`` blocks (and an unterminated trailing one)."""
+    content = _THINK_BLOCK_RE.sub("", content)
+    open_tag = content.lower().find("<think>")
+    if open_tag != -1:
+        content = content[:open_tag]
+    return content.strip()
 
 
 @runtime_checkable
@@ -49,9 +63,7 @@ class OpenAICompatibleClient:
         max_retries: int = 3,
     ) -> None:
         if not api_key:
-            raise LLMError(
-                "No LLM API key configured. Set GROQ_API_KEY (or SCRAG_LLM_API_KEY)."
-            )
+            raise LLMError("No LLM API key configured. Set GROQ_API_KEY (or SCRAG_LLM_API_KEY).")
         from openai import OpenAI
 
         self._client = OpenAI(
@@ -71,7 +83,7 @@ class OpenAICompatibleClient:
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> str:
-        kwargs: dict[str, object] = {
+        kwargs: dict[str, Any] = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system},
@@ -85,10 +97,14 @@ class OpenAICompatibleClient:
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            response = self._client.chat.completions.create(**kwargs)  # type: ignore[arg-type]
+            response = self._client.chat.completions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - normalize all provider errors
+            # Full provider detail goes to server logs only; the API layer
+            # returns a generic, client-safe message.
             logger.error("LLM request failed for model %s: %s", model, exc)
+            if getattr(exc, "status_code", None) == 429:
+                raise LLMRateLimitError(f"LLM rate limited: {exc}") from exc
             raise LLMError(f"LLM request failed: {exc}") from exc
 
         content = response.choices[0].message.content
-        return (content or "").strip()
+        return strip_reasoning(content or "")

@@ -14,13 +14,25 @@ class VectorStore(ABC):
 
     Implementations own persistence and search. Vectors are assumed to be
     L2-normalized on insertion so that inner product equals cosine similarity.
+
+    Concurrency contract: ``search`` may run concurrently with any write
+    (``add``/``replace``/``clear``/``load``) and must observe either the state
+    before or after that write, never a mix of the two.
     """
 
     dim: int
 
     @abstractmethod
     def add(self, vectors: np.ndarray, chunks: list[Chunk]) -> None:
-        """Add ``vectors`` (shape ``(n, dim)``) with their ``chunks``."""
+        """Append ``vectors`` (shape ``(n, dim)``) with their ``chunks``."""
+
+    @abstractmethod
+    def replace(self, vectors: np.ndarray, chunks: list[Chunk]) -> None:
+        """Atomically swap the whole contents for ``vectors``/``chunks``."""
+
+    @abstractmethod
+    def snapshot(self) -> tuple[np.ndarray, list[Chunk]]:
+        """Return a consistent copy of the (normalized) vectors and their chunks."""
 
     @abstractmethod
     def search(self, query_vector: np.ndarray, top_k: int) -> list[RetrievedChunk]:
@@ -41,6 +53,13 @@ class VectorStore(ABC):
     @abstractmethod
     def __len__(self) -> int:
         """Number of stored chunks."""
+
+    def refresh_if_stale(self) -> bool:
+        """Reload if another process persisted a newer index. Returns True if reloaded.
+
+        The default is a no-op for stores with no shared persistence.
+        """
+        return False
 
     @staticmethod
     def _normalize(vectors: np.ndarray) -> np.ndarray:

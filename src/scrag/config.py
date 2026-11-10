@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,24 +26,27 @@ class Settings(BaseSettings):
         env_prefix="SCRAG_",
         case_sensitive=False,
         extra="ignore",
+        # Let code pass `llm_api_key=...` as well as the env-style aliases.
+        populate_by_name=True,
     )
 
     # --- LLM (provider-agnostic, OpenAI-compatible) -----------------------
     llm_api_key: str | None = Field(
         default=None,
         # Accept SCRAG_LLM_API_KEY, GROQ_API_KEY or OPENAI_API_KEY.
-        validation_alias=AliasChoices(
-            "SCRAG_LLM_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"
-        ),
+        validation_alias=AliasChoices("SCRAG_LLM_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"),
         description="API key for the OpenAI-compatible LLM provider.",
     )
     llm_base_url: str = Field(
         default="https://api.groq.com/openai/v1",
         description="Base URL of the OpenAI-compatible endpoint (Groq by default).",
     )
-    generator_model: str = "llama-3.1-8b-instant"
-    evaluator_model: str = "llama-3.1-8b-instant"
-    guardrail_model: str = "llama-3.1-8b-instant"
+    # Groq retired llama-3.1-8b-instant / llama-3.3-70b-versatile for free and
+    # developer tiers on 2026-08-16. Provider model lists change often: check
+    # https://console.groq.com/docs/models when a model ID starts failing.
+    generator_model: str = "qwen/qwen3.8-27b"
+    evaluator_model: str = "qwen/qwen3.8-27b"
+    guardrail_model: str = "qwen/qwen3.8-27b"
     llm_timeout: float = Field(default=30.0, gt=0)
     llm_max_retries: int = Field(default=3, ge=0)
 
@@ -62,16 +65,20 @@ class Settings(BaseSettings):
     index_dir: Path = Path("data/index")
 
     # --- Retrieval / pipeline --------------------------------------------
-    top_k: int = Field(default=5, gt=0)
+    top_k: int = Field(default=5, gt=0, le=100)
     # Small instruct models score relevance conservatively, so a moderate
     # threshold keeps genuinely relevant chunks. The pipeline also falls back to
     # raw retrieval if the guardrail drops everything.
     guardrail_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
     guardrail_max_workers: int = Field(
-        default=4, gt=0, description="Concurrent guardrail scoring workers."
+        default=4, gt=0, le=32, description="Concurrent guardrail scoring workers."
     )
+    # The guardrail only needs a number back. Reasoning models that spend
+    # completion tokens on hidden reasoning (e.g. openai/gpt-oss-*) need ~256.
+    guardrail_max_tokens: int = Field(default=8, gt=0, le=4096)
     eval_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
-    max_self_correct_steps: int = Field(default=2, ge=1)
+    # Bounded on purpose: each step costs two LLM calls.
+    max_self_correct_steps: int = Field(default=2, ge=1, le=10)
 
     # --- API / server -----------------------------------------------------
     api_host: str = "0.0.0.0"
@@ -88,7 +95,7 @@ class Settings(BaseSettings):
 
     @field_validator("chunk_overlap")
     @classmethod
-    def _overlap_smaller_than_size(cls, v: int, info) -> int:  # type: ignore[no-untyped-def]
+    def _overlap_smaller_than_size(cls, v: int, info: ValidationInfo) -> int:
         size = info.data.get("chunk_size")
         if size is not None and v >= size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")

@@ -63,12 +63,8 @@ def test_query_validation_error(settings, sample_chunks):
 def test_ingest_endpoint(settings):
     docs_dir = settings.docs_dir
     docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / "a.txt").write_text(
-        "rag combines retrieval and generation.", encoding="utf-8"
-    )
-    (docs_dir / "b.txt").write_text(
-        "a guardrail agent filters context.", encoding="utf-8"
-    )
+    (docs_dir / "a.txt").write_text("rag combines retrieval and generation.", encoding="utf-8")
+    (docs_dir / "b.txt").write_text("a guardrail agent filters context.", encoding="utf-8")
     with _client(settings) as client:
         resp = client.post("/ingest", json={"reset": True})
         assert resp.status_code == 200
@@ -104,14 +100,10 @@ def test_api_auth_enforced_when_token_configured(settings, sample_chunks):
     with _client(settings, chat, sample_chunks) as client:
         assert client.post("/query", json={"query": "hi"}).status_code == 401
         assert (
-            client.post(
-                "/query", json={"query": "hi"}, headers={"X-API-Key": "wrong"}
-            ).status_code
+            client.post("/query", json={"query": "hi"}, headers={"X-API-Key": "wrong"}).status_code
             == 401
         )
-        ok = client.post(
-            "/query", json={"query": "hi"}, headers={"X-API-Key": "s3cret"}
-        )
+        ok = client.post("/query", json={"query": "hi"}, headers={"X-API-Key": "s3cret"})
         assert ok.status_code == 200
         bearer = client.post(
             "/query",

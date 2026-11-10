@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .embeddings import Embedder
+from .embeddings import Embedder, embed_checked
 from .models import RetrievedChunk
 from .vectorstore.base import VectorStore
 
@@ -16,8 +16,9 @@ class Retriever:
         self.default_top_k = default_top_k
 
     def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]:
-        if not query.strip():
+        # An empty store can't match anything: skip embedding (and model loading).
+        if not query.strip() or len(self.store) == 0:
             return []
         k = top_k or self.default_top_k
-        query_vector = self.embedder.embed([query])
+        query_vector = embed_checked(self.embedder, [query], self.store.dim)
         return self.store.search(query_vector, k)

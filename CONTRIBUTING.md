@@ -23,8 +23,8 @@ to run and pass the tests.
 All of these must pass - CI runs the same on Python 3.10, 3.11 and 3.12:
 
 ```bash
-ruff check .          # lint (and `ruff format .` to auto-format)
-pytest                # full test suite
+python scripts/verify.py        # ruff check, ruff format --check, mypy src, pytest
+python scripts/verify.py --fix  # apply ruff fixes and formatting first
 ```
 
 Please also:
@@ -46,14 +46,15 @@ Please also:
   and be wired in `scrag/container.py` - orchestration code must not change.
 - **Config:** all tunables live in `scrag/config.py` (`Settings`) and are
   environment-driven; don't hard-code values in modules.
-- **Errors:** raise `LLMError` / `ValueError` from the core; the API layer maps
-  them to HTTP status codes.
+- **Errors:** raise a `ScragError` subclass (`scrag/errors.py`) from the core;
+  the API layer maps it to its HTTP status and client-safe `public_message`.
+  Internal detail belongs in the exception text, which is only logged.
 
 ## Pull request process
 
 1. Branch from `main` (e.g. `feat/...`, `fix/...`, `docs/...`).
 2. Make your change with tests and docs.
-3. Ensure `ruff check .` and `pytest` are green.
+3. Ensure `python scripts/verify.py` is green.
 4. Open a PR describing the motivation and the change. Update
    [CHANGELOG.md](CHANGELOG.md) under the "Unreleased" heading.
 

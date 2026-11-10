@@ -10,12 +10,15 @@ a clear 503.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 
 from .agents import EvaluatorAgent, GeneratorAgent, GuardrailAgent
 from .chunking import Chunker
 from .config import Settings
 from .embeddings import Embedder, SentenceTransformerEmbedder
+from .errors import IngestInProgressError
+from .ingest import IngestStats, ingest
 from .llm.client import ChatClient, OpenAICompatibleClient
 from .logging_config import get_logger
 from .pipeline import SelfCorrectingRAGPipeline
@@ -34,6 +37,8 @@ class Container:
     chunker: Chunker
     retriever: Retriever
     pipeline: SelfCorrectingRAGPipeline | None  # None when no LLM key configured
+    # One ingestion at a time per process; concurrent requests get a 409.
+    ingest_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def load_index(self) -> bool:
         """Load a persisted index into the store if one exists."""
@@ -42,6 +47,37 @@ class Container:
         except Exception as exc:  # noqa: BLE001 - surface but don't crash startup
             logger.warning("Could not load persisted index: %s", exc)
             return False
+
+    def refresh_index(self) -> bool:
+        """Pick up an index persisted by another process (e.g. another API worker).
+
+        On failure the currently loaded index keeps serving.
+        """
+        try:
+            return self.store.refresh_if_stale()
+        except Exception as exc:  # noqa: BLE001 - degrade to the loaded index
+            logger.warning("Could not refresh index; serving the loaded one: %s", exc)
+            return False
+
+    def run_ingest(self, *, reset: bool = True) -> IngestStats:
+        """Ingest the configured docs directory, rejecting concurrent runs."""
+        if not self.ingest_lock.acquire(blocking=False):
+            raise IngestInProgressError()
+        try:
+            if not reset:
+                # Upsert against the newest persisted index, not a stale copy
+                # (another worker may have ingested since this one loaded).
+                self.refresh_index()
+            return ingest(
+                embedder=self.embedder,
+                store=self.store,
+                chunker=self.chunker,
+                docs_dir=self.settings.docs_dir,
+                batch_size=self.settings.embedding_batch_size,
+                reset=reset,
+            )
+        finally:
+            self.ingest_lock.release()
 
 
 def build_container(
@@ -82,6 +118,7 @@ def build_container(
                 settings.guardrail_model,
                 threshold=settings.guardrail_threshold,
                 max_workers=settings.guardrail_max_workers,
+                max_tokens=settings.guardrail_max_tokens,
             ),
             generator=GeneratorAgent(client, settings.generator_model),
             evaluator=EvaluatorAgent(client, settings.evaluator_model),

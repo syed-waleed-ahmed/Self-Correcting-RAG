@@ -18,8 +18,16 @@ from scrag.config import Settings
 from scrag.models import Chunk
 
 VOCAB = [
-    "rag", "retrieval", "generation", "guardrail", "agent",
-    "filter", "context", "answer", "embedding", "vector",
+    "rag",
+    "retrieval",
+    "generation",
+    "guardrail",
+    "agent",
+    "filter",
+    "context",
+    "answer",
+    "embedding",
+    "vector",
 ]
 FAKE_DIM = len(VOCAB)
 
@@ -44,29 +52,37 @@ class FakeEmbedder:
         return np.asarray(rows, dtype="float32")
 
 
+Script = str | Exception | list[str | Exception]
+
+
 class FakeChatClient:
     """Scriptable ChatClient. Routes each call by role via the system prompt.
 
-    Each of ``guardrail``/``generator``/``evaluator`` may be a fixed string or a
-    list consumed one item per call (useful for multi-attempt scenarios).
+    Each of ``guardrail``/``generator``/``evaluator`` may be a fixed value or a
+    list consumed one item per call (useful for multi-attempt scenarios). A
+    value that is an ``Exception`` instance is raised instead of returned, to
+    simulate provider failures. ``calls`` records the role of every call and
+    ``prompts`` the ``(role, user_prompt)`` pairs.
     """
 
     def __init__(
         self,
-        guardrail: str | list[str] = "0.9",
-        generator: str | list[str] = "A grounded answer.",
-        evaluator: str | list[str] = '{"score": 0.9, "explanation": "well grounded"}',
+        guardrail: Script = "0.9",
+        generator: Script = "A grounded answer.",
+        evaluator: Script = '{"score": 0.9, "explanation": "well grounded"}',
     ) -> None:
         self.guardrail = guardrail
         self.generator = generator
         self.evaluator = evaluator
         self.calls: list[str] = []
+        self.prompts: list[tuple[str, str]] = []
 
     @staticmethod
-    def _next(value: str | list[str], fallback: str) -> str:
-        if isinstance(value, list):
-            return value.pop(0) if value else fallback
-        return value
+    def _next(value: Script, fallback: str) -> str:
+        item = (value.pop(0) if value else fallback) if isinstance(value, list) else value
+        if isinstance(item, Exception):
+            raise item
+        return item
 
     def complete(self, *, model, system, user, temperature=0.2, max_tokens=None, json_mode=False):  # noqa: ANN001,E501
         role = "generator"
@@ -76,11 +92,25 @@ class FakeChatClient:
         elif "evaluator" in low:
             role = "evaluator"
         self.calls.append(role)
+        self.prompts.append((role, user))
         if role == "guardrail":
             return self._next(self.guardrail, "0.0")
         if role == "evaluator":
             return self._next(self.evaluator, '{"score": 0.0, "explanation": ""}')
         return self._next(self.generator, "")
+
+    def prompts_for(self, role: str) -> list[str]:
+        return [user for r, user in self.prompts if r == role]
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch):
+    """Keep a developer's real keys and SCRAG_* overrides out of every test."""
+    import os
+
+    for key in list(os.environ):
+        if key.startswith("SCRAG_") or key in {"GROQ_API_KEY", "OPENAI_API_KEY"}:
+            monkeypatch.delenv(key, raising=False)
 
 
 @pytest.fixture

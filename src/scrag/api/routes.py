@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import secrets
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import __version__
 from ..container import Container
-from ..ingest import ingest
+from ..errors import IndexEmptyError, LLMNotConfiguredError
 from ..models import (
     ChunkView,
+    ErrorResponse,
     HealthResponse,
     IngestRequest,
     IngestResponse,
@@ -20,6 +22,10 @@ from ..models import (
 )
 
 router = APIRouter()
+
+_ERRORS: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorResponse} for status in (401, 409, 500, 502, 503)
+}
 
 
 def _container(request: Request) -> Container:
@@ -40,12 +46,18 @@ def require_auth(request: Request) -> None:
         auth = request.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
             provided = auth[7:].strip()
-    if not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=401, detail="Invalid or missing API token.")
+    if not provided or not secrets.compare_digest(provided.encode(), expected.encode()):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @router.get("/health", response_model=HealthResponse, tags=["ops"])
 def health(request: Request) -> HealthResponse:
+    # Liveness only: deliberately no index reload or other I/O here, so a slow
+    # reload can never fail a container health check.
     c = _container(request)
     return HealthResponse(
         status="ok",
@@ -62,26 +74,25 @@ def health(request: Request) -> HealthResponse:
     response_model=QueryResponse,
     tags=["rag"],
     dependencies=[Depends(require_auth)],
+    responses=_ERRORS,
 )
 def query(request: Request, body: QueryRequest) -> QueryResponse:
     c = _container(request)
     if c.pipeline is None:
-        raise HTTPException(
-            status_code=503,
-            detail="LLM is not configured. Set GROQ_API_KEY to enable /query.",
-        )
+        raise LLMNotConfiguredError()
+    c.refresh_index()  # pick up an index another worker/process just ingested
     if len(c.store) == 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Index is empty. Ingest documents first (POST /ingest).",
-        )
+        raise IndexEmptyError()
     result: PipelineResult = c.pipeline.run(body.query, top_k=body.top_k)
     return QueryResponse(
         query=result.query,
         answer=result.answer,
         evaluation_score=result.evaluation_score,
         evaluation_explanation=result.evaluation_explanation,
+        evaluation_status=result.evaluation_status,
         attempts=result.attempts,
+        best_attempt=result.best_attempt,
+        attempt_history=result.attempt_history,
         used_chunks=[
             ChunkView(
                 source=rc.chunk.source,
@@ -99,19 +110,15 @@ def query(request: Request, body: QueryRequest) -> QueryResponse:
     response_model=IngestResponse,
     tags=["rag"],
     dependencies=[Depends(require_auth)],
+    responses=_ERRORS,
 )
 def ingest_endpoint(request: Request, body: IngestRequest) -> IngestResponse:
-    c = _container(request)
-    stats = ingest(
-        embedder=c.embedder,
-        store=c.store,
-        chunker=c.chunker,
-        docs_dir=c.settings.docs_dir,
-        batch_size=c.settings.embedding_batch_size,
-        reset=body.reset,
-    )
+    stats = _container(request).run_ingest(reset=body.reset)
     return IngestResponse(
         documents=stats.documents,
         chunks=stats.chunks,
         index_size=stats.index_size,
+        added_documents=stats.added_documents,
+        updated_documents=stats.updated_documents,
+        skipped_documents=stats.skipped_documents,
     )
