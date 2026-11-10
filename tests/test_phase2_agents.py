@@ -63,9 +63,10 @@ def fake_fastembed(monkeypatch):
     calls: dict[str, object] = {}
 
     class FakeTextEmbedding:
-        def __init__(self, model_name, cache_dir=None):
+        def __init__(self, model_name, cache_dir=None, threads=None):
             calls["model_name"] = model_name
             calls["cache_dir"] = cache_dir
+            calls["threads"] = threads
 
         def embed(self, texts, batch_size=256):
             return (np.full(384, 0.5, dtype="float32") for _ in texts)
