@@ -20,6 +20,7 @@ recorded run, and the self-check panel shows a passed evaluation](docs/images/li
 recorded runs; "Run live" executes the pipeline.*
 
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/codeql.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
@@ -340,6 +341,16 @@ Highlights:
 - Optional JWT admin auth (e.g. Supabase Auth): algorithms come from the
   configuration, never from the token, and `exp`, `sub` and `aud` are required.
 - The container image runs as a non-root user.
+- The web UI is a static export with no secrets. The Render site sends a
+  Content-Security-Policy that allows network calls only to the API, plus
+  `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy`.
+- Repository protections:
+  - secret scanning with push protection, so a commit containing a credential
+    is rejected;
+  - CodeQL code scanning;
+  - Dependabot alerts and security updates;
+  - a CI dependency audit (`pip-audit`, `npm audit`);
+  - `main` only changes through pull requests with passing CI.
 
 ## Project structure
 
@@ -382,10 +393,14 @@ tests/                 pytest suite (fakes; no network or torch)
 ## Development
 
 ```bash
-pip install -e ".[local,dev]"
+pip install -e ".[onnx,docs,dev]"
+pre-commit install              # ruff, format, secret and whitespace checks on every commit
 python scripts/verify.py        # lint + format check + mypy + tests (what CI runs)
 python scripts/verify.py --fix  # apply ruff fixes/formatting first
 ```
+
+CI also runs CodeQL and a dependency audit (`pip-audit` on what the Docker
+image ships, `npm audit` on the web UI).
 
 The 236 tests run in seconds with no network or API key. Two groups skip
 unless their dependency is present, and CI runs both:

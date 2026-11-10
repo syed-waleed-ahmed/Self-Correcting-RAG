@@ -164,3 +164,40 @@ jobs:
 
       - name: Type check
         run: npm run lint
+
+  # Known-vulnerability audit of what actually ships: the deployment image's
+  # Python dependencies (fresh resolve, same extras as the Dockerfile) and the
+  # web UI's production npm dependencies.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the deployed dependency set
+        run: |
+          python -m venv /tmp/deploy
+          /tmp/deploy/bin/pip install --upgrade pip setuptools
+          /tmp/deploy/bin/pip install ".[onnx,docs,postgres,auth]" pip-audit
+
+      # Fails on any known vulnerability with a published fix. The project
+      # itself isn't on PyPI, so it is reported as "not audited" (not a failure).
+      - name: pip-audit (Python)
+        run: /tmp/deploy/bin/pip-audit --progress-spinner off --skip-editable
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: npm audit (web, production dependencies)
+        working-directory: web
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high

@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
+Highlights: a bounded tool-using agent (Phase 3), optional Postgres
+persistence with sessions, uploads, history and durable jobs (Phase 4), and the
+project's first public deployment on free tiers. The Phase 2 work (hybrid
+retrieval and the evaluation harness) is in 0.2.0 below.
+
+### Project (tooling and hardening)
+
+- Security tooling:
+  - CodeQL code scanning (Python and TypeScript, weekly and on every PR);
+  - a CI `audit` job: `pip-audit` on the deployed dependency set and
+    `npm audit` on the web UI;
+  - pre-commit hooks (ruff, YAML/TOML/JSON checks, private-key detection,
+    whitespace) with an `.editorconfig`;
+  - line endings normalized with `.gitattributes`;
+  - `CITATION.cff`.
+- Web UI:
+  - Open Graph and Twitter preview metadata, a canonical URL, and
+    `robots.txt`;
+  - the Render static site sends immutable caching for hashed assets and
+    security headers (CSP, `X-Frame-Options`, `Referrer-Policy`,
+    `Permissions-Policy`). The CSP was verified in a browser before
+    shipping.
+
 ### Project (open-source readiness)
 
 - Community files:
@@ -281,5 +306,7 @@ deployable package with a REST API and CLI over a shared core.
 - Removed an f-string backslash that raised `SyntaxError` on Python < 3.12; the
   package now runs on Python 3.10+.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.1.0
+[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.3.0
+
+Versions before 0.3.0 were not tagged.

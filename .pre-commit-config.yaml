@@ -1,0 +1,31 @@
+# Fast checks before every commit: `pip install -e ".[dev]" && pre-commit install`.
+# CI runs the full gate (scripts/verify.py); these hooks catch the common
+# problems earlier, including committed secrets.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]  # render.yaml and workflows only need parsing
+      - id: check-toml
+      - id: check-json
+        exclude: ^(web/tsconfig\.json)$  # JSON with comments
+      # data/ is fingerprinted (recorded demo answers): never rewrite it.
+      - id: end-of-file-fixer
+        exclude: ^(graphify-out/|data/)
+      - id: trailing-whitespace
+        exclude: ^(graphify-out/|data/|.*\.md$)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: ^(graphify-out/|data/)
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

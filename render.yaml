@@ -3,7 +3,8 @@
 # Deploy: Render Dashboard -> New -> Blueprint -> select this repository.
 # Render asks for the values marked `sync: false`. See docs/deployment.md.
 #
-# Forking? Change SCRAG_CORS_ALLOW_ORIGINS and NEXT_PUBLIC_API_BASE_URL below to
+# Forking? Change SCRAG_CORS_ALLOW_ORIGINS, NEXT_PUBLIC_API_BASE_URL and the
+# API origin in the static site's Content-Security-Policy (connect-src) below to
 # your own URLs (docs/deployment.md, "Deploy your own copy").
 services:
   - type: web
@@ -52,3 +53,23 @@ services:
         value: "22"
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://scrag-api.onrender.com
+    headers:
+      # Next.js puts a content hash in every file under _next/static, so a
+      # browser can cache them forever. HTML stays revalidated (Render default).
+      - path: /_next/static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      # The static export uses inline bootstrap scripts, hence 'unsafe-inline'.
+      # connect-src must list the API origin (change it in a fork).
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://scrag-api.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()

@@ -1,6 +1,6 @@
 {
   "name": "scrag-web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Public demo UI for SCRAG (Self-Correcting RAG). Static export, deployable to Vercel.",
   "scripts": {

@@ -25,7 +25,8 @@ the Blueprint, make three edits in your fork:
 1. **`render.yaml`, `SCRAG_CORS_ALLOW_ORIGINS`:** replace the two origins with
    your own web UI origins, e.g. `https://<you>.github.io` and
    `https://<your-web-service>.onrender.com`.
-2. **`render.yaml`, `NEXT_PUBLIC_API_BASE_URL`** (under `scrag-web`): set your
+2. **`render.yaml`, `NEXT_PUBLIC_API_BASE_URL`** and the `connect-src` entry
+   in the `Content-Security-Policy` header (both under `scrag-web`): set your
    API's URL. Render service names are global, so if `scrag-api` is taken,
    Render adds a suffix, and you must use the URL it shows.
 3. **GitHub Pages (optional):** set the repository variable

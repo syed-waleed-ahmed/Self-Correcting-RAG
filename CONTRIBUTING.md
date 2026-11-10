@@ -16,13 +16,14 @@ python -m venv .venv
 source .venv/bin/activate            # Windows (PowerShell): .venv\Scripts\Activate.ps1
 pip install -e ".[onnx,docs,dev]"
 cp .env.example .env                 # add GROQ_API_KEY to run real queries
+pre-commit install                   # checks on every commit (ruff, secrets, whitespace)
 ```
 
 The extras:
 
 | Extra | Contents |
 | --- | --- |
-| `dev` | Test and lint tooling, plus the Postgres and JWT libraries the tests use |
+| `dev` | Test, lint and audit tooling (pytest, ruff, mypy, pre-commit, pip-audit), plus the Postgres and JWT libraries the tests use |
 | `onnx` | The lightweight fastembed embedder (what the Docker image uses) |
 | `docs` | PDF and DOCX parsing |
 | `local` | The torch-based sentence-transformers embedder (same vectors, more memory) |
@@ -38,6 +39,10 @@ CI runs the same checks on Python 3.10, 3.11 and 3.12:
 python scripts/verify.py        # ruff check, ruff format --check, mypy src, pytest
 python scripts/verify.py --fix  # apply ruff fixes and formatting first
 ```
+
+CI also runs CodeQL and a dependency audit. To reproduce the audit locally, run
+`pip-audit` in a fresh environment with the image's extras
+(`.[onnx,docs,postgres,auth]`).
 
 Two groups of tests skip locally unless their dependency is present. CI always
 runs both.
