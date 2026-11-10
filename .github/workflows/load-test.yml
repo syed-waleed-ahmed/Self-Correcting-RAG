@@ -56,7 +56,8 @@ jobs:
             docker run -d --name "$name" --network host --cpus "$cpus" --memory 512m \
               -e PORT=8000 -e SCRAG_LLM_API_KEY=mock -e SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 \
               -e SCRAG_LOG_LEVEL=WARNING "$@" scrag:load > /dev/null
-            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 > /dev/null
+            # A cold 0.1-CPU container loads its model on the first search: allow 5 min.
+            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 --timeout 300 > /dev/null
             local idle after peak oom
             idle=$(memory "$name")
             # shellcheck disable=SC2086
@@ -78,15 +79,40 @@ jobs:
             docker rm -f "$name" > /dev/null
           }
 
+          # ingest_memory <name> -- <extra docker args>: memory before and after a
+          # runtime re-ingest of the sample corpus at 0.1 CPU, the way the job
+          # worker embeds an upload on the demo.
+          ingest_memory() {
+            local name=$1; shift 2
+            docker run -d --name "$name" --network host --cpus 0.1 --memory 512m \
+              -e PORT=8000 -e SCRAG_LOG_LEVEL=WARNING "$@" scrag:load > /dev/null
+            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 --timeout 300 > /dev/null
+            local before after peak oom
+            before=$(memory "$name")
+            curl -sf --max-time 600 -X POST http://127.0.0.1:8000/api/v1/ingest \
+              -H 'content-type: application/json' -d '{"reset": true}' > /dev/null
+            after=$(memory "$name")
+            peak=$(docker exec "$name" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "")
+            [[ "$peak" =~ ^[0-9]+$ ]] && peak="$((peak / 1048576)) MiB" || peak="n/a"
+            oom=$(docker inspect -f '{{.State.OOMKilled}}' "$name")
+            echo "| $name | $before | $after | $peak | $oom |" >> "$GITHUB_STEP_SUMMARY"
+            docker rm -f "$name" > /dev/null
+          }
+
           profile capacity-1cpu 1.0 20 "Visitor" -- -e SCRAG_DEMO_MODE=false
           profile capacity-free-tier 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false
-          # Same, with glibc limited to two malloc arenas (per-thread arenas can
-          # hold on to freed memory in multi-threaded Python).
-          profile capacity-free-tier-arenas 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false \
-            -e MALLOC_ARENA_MAX=2
           profile abuse-free-tier 0.1 11 "DemoVisitor Flooder" -- \
             -e SCRAG_DEMO_MODE=true -e SCRAG_DEMO_DAILY_QUERY_BUDGET=100000 \
             -e SCRAG_FORWARDED_IP_HEADER=x-forwarded-for -e SCRAG_FORWARDED_IP_HOPS=1
+
+          {
+            echo
+            echo "### Runtime ingest at 0.1 CPU, 512 MB (as the demo embeds an upload)"
+            echo "| Run | Before | After the ingest | Peak (cgroup, incl. cache) | OOM-killed |"
+            echo "| --- | --- | --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ingest_memory ingest-batch-32 -- -e SCRAG_EMBEDDING_BATCH_SIZE=32
+          ingest_memory ingest-batch-8-default --
 
       - name: Upload the raw results
         if: always()

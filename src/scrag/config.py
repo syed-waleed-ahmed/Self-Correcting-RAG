@@ -61,7 +61,11 @@ class Settings(BaseSettings):
         default=None, description="Where model files are cached (bake into images)."
     )
     embedding_dim: int = Field(default=384, gt=0)
-    embedding_batch_size: int = Field(default=32, gt=0)
+    # ONNX Runtime keeps the memory a batch needed, so the largest batch sets the
+    # process's size for good. Measured on a full ingest: batch 32 added 229 MB
+    # (most of a 512 MB free instance's headroom), batch 8 added 65 MB, and it was
+    # no slower. Uploads on the demo are embedded at runtime (docs/load-testing.md).
+    embedding_batch_size: int = Field(default=8, gt=0)
 
     # --- Chunking ---------------------------------------------------------
     chunk_size: int = Field(default=1000, gt=0, description="Chunk size in characters.")

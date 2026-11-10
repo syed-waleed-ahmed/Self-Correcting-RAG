@@ -22,6 +22,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+# Per request. A cold 0.1-CPU instance loads its model on the first search.
+OPTIONS = {"timeout_s": 90.0}
+
 
 def call(base: str, method: str, path: str, body: dict | None = None) -> tuple[int, Any, dict]:
     data = json.dumps(body).encode() if body is not None else None
@@ -32,7 +35,7 @@ def call(base: str, method: str, path: str, body: dict | None = None) -> tuple[i
         headers={"content-type": "application/json", "user-agent": "scrag-smoke/1"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=90) as resp:
+        with urllib.request.urlopen(req, timeout=OPTIONS["timeout_s"]) as resp:
             return resp.status, json.loads(resp.read() or b"null"), dict(resp.headers)
     except urllib.error.HTTPError as err:
         raw = err.read()
@@ -48,8 +51,12 @@ def main() -> int:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--wake-timeout", type=float, default=180.0)
     parser.add_argument("--live-query", action="store_true")
+    parser.add_argument(
+        "--timeout", type=float, default=OPTIONS["timeout_s"], help="seconds per request"
+    )
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
+    OPTIONS["timeout_s"] = args.timeout
     failures: list[str] = []
 
     def check(name: str, ok: bool, detail: object = "") -> None:
@@ -96,8 +103,10 @@ def main() -> int:
     else:
         check("query without LLM is 503", status == 503, body)
 
-    status, body, _ = call(base, "POST", "/api/v1/ingest", {"reset": True})
+    # Only on the demo, where it must be refused: elsewhere this request would
+    # really re-ingest the corpus.
     if health.get("demo_mode"):
+        status, body, _ = call(base, "POST", "/api/v1/ingest", {"reset": True})
         check("anonymous ingest is refused on the demo", status in (401, 403), status)
 
     if args.live_query:

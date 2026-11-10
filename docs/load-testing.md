@@ -103,9 +103,59 @@ deployment image and runs three profiles against it with `--cpus 0.1
 - capacity at 0.1 CPU;
 - abuse at 0.1 CPU (10 `DemoVisitor`s and one flood connection).
 
-It records end and peak memory and whether the container was OOM-killed, and
+It records memory before and after each run (process memory and page cache
+separately), the cgroup's peak, and whether the container was OOM-killed, and
 writes every table to the job summary. It runs manually and on pull requests
 that change the load tests or the image.
+
+First run ([42829377689](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/runs/42829377689),
+a 4-CPU GitHub runner):
+
+| Profile | Req/s | Failures | Search median / p95 | Sample answer median / p95 | Live answer median / p95 | Peak memory | OOM |
+| --- | ---: | ---: | --- | --- | --- | ---: | --- |
+| 1 CPU, 20 `Visitor`s | 9.8 | 0 | 3 / 5 ms | 1 / 2 ms | 990 / 1,000 ms | 457 MiB | no |
+| 0.1 CPU, 10 `Visitor`s | 4.8 | 0 | 21 / 270 ms | 1 / 100 ms | 1,100 / 1,500 ms | 459 MiB | no |
+| 0.1 CPU, 10 `DemoVisitor`s + 1 flood connection | 354 | 0 (visitors) | 83 / 390 ms | 49 / 290 ms | 1,111 / 2,200 ms | 236 MiB | no |
+
+- **At Render Free's 0.1 CPU,** the real image served a busy 10-user load
+  without a failure. Retrieval p95 rose to 270 ms, and live answers stayed
+  LLM-bound.
+- **The single flood connection got 14 of 42,068 requests served** (its burst
+  of 3 plus 6 a minute), with no visitor errors.
+- **Memory rose from about 210 MiB at startup to a 457-459 MiB peak** in the
+  two capacity profiles, close to the 512 MiB limit.
+
+## Memory: what the 460 MiB was, and the fix
+
+The next run split process memory from page cache. It showed **439 MiB of
+process memory before any load**, with no cache. The demo-mode container job
+in CI measures about 215 MiB for the same image, so the load test was doing
+something production doesn't:
+- **The smoke script's ingest call.** Outside demo mode, `scripts/smoke.py`
+  sent `POST /ingest {"reset": true}` (meant only to check that the demo
+  refuses it), so the server re-embedded the whole corpus at runtime.
+- **ONNX Runtime keeps the memory its largest batch needed.** One batch of 32
+  long chunks sets the process size for good.
+
+Measured locally (process memory, one full ingest of the 29-chunk corpus;
+each run took about 0.5 s):
+
+| Embedding batch size | 4 | 8 | 16 | 32 (old default) |
+| --- | ---: | ---: | ---: | ---: |
+| Memory added by the ingest, never released | +36 MB | +65 MB | +137 MB | **+229 MB** |
+
+This mattered in production too. On the demo, the job worker embeds every
+visitor upload at runtime at that batch size: one upload would have taken the
+API from about 215 MiB to about 440 MiB of a 512 MiB instance. Two fixes:
+- **The default `SCRAG_EMBEDDING_BATCH_SIZE` is now 8.** It keeps 165 MB of
+  headroom, and a large upload still needs only 25 embedding calls.
+- **`scripts/smoke.py` only calls `/ingest` against the demo**, where the call
+  must be refused. It no longer re-ingests a server's corpus as a side effect.
+
+The workflow now measures a runtime ingest directly, at 0.1 CPU and 512 MB,
+with batch 32 and with the default:
+
+CI_INGEST_TABLE
 
 ## Running it
 

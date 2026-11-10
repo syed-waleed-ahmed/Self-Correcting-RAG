@@ -54,6 +54,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   can't stop. Digits are now bounded to ±100.
 - **Secrets showed in `repr(settings)`.** The provider key and operator token
   no longer appear.
+- **Embedding batch size: the default is now 8 (was 32).** ONNX Runtime keeps
+  the memory its largest batch needed: a runtime ingest at batch 32 added
+  229 MB for good, which on the demo's 512 MB instance one upload could
+  trigger. At batch 8 it adds 65 MB, at the same speed (`docs/load-testing.md`).
+- **`scripts/smoke.py` re-ingested the corpus of any non-demo server it
+  tested.** It now only sends `/ingest` to the demo, to check the call is
+  refused. It also gained `--timeout` for cold, slow instances.
 
 ### Added (Phase 6: observability and evaluation)
 
