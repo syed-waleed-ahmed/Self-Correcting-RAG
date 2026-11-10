@@ -13,11 +13,13 @@ https://scrag-api.onrender.com, with interactive docs at
 first request can take about a minute. Uploads and history are deleted after 24
 hours; please don't upload personal data.
 
-![The live SCRAG demo answering a sample question: the answer is labelled as a
-recorded run, and the self-check panel shows a passed evaluation](docs/images/live-demo.jpg)
+![The live SCRAG demo after a live run: the pipeline panel lists retrieval, the
+guardrail keeping 3 of 3 chunks, the written answer and its grade of 1.00, next
+to the answer and a passed self-check](docs/images/live-demo.jpg)
 
-*The deployed demo, captured 2026-11-10. Sample questions are answered from
-recorded runs; "Run live" executes the pipeline.*
+*The deployed demo, captured 2026-11-10 during a live run: each pipeline stage
+streams in as it completes. The My documents and Agent tabs add private uploads
+and a tool-using agent.*
 
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/codeql.yml)

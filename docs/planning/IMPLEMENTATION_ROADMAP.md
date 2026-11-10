@@ -33,7 +33,7 @@ adopted (see "Decisions taken" below):
 | 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
 | 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
 | 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
-| 5 | Frontend | **Done** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
+| 5 | Frontend | **Live** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
 | 6 | Observability and evaluation | Not started |
 | 7 | Security hardening, quotas, load tests | Not started |
 | 8 | Full free-tier deployment | Not started |
