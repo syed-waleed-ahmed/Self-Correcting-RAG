@@ -1,11 +1,11 @@
 # Graph Report - D:\Projects & Stuff\self_correcting_rag  (2026-11-10)
 
 ## Corpus Check
-- 84 files · ~191,050 words
+- 84 files · ~191,365 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1110 nodes · 3936 edges · 53 communities detected
+- 1111 nodes · 3937 edges · 55 communities detected
 - Extraction: 42% EXTRACTED · 58% INFERRED · 0% AMBIGUOUS · INFERRED: 2292 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
@@ -63,6 +63,8 @@
 - [[_COMMUNITY_Community 50|Community 50]]
 - [[_COMMUNITY_Community 51|Community 51]]
 - [[_COMMUNITY_Community 52|Community 52]]
+- [[_COMMUNITY_Community 53|Community 53]]
+- [[_COMMUNITY_Community 54|Community 54]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `Chunk` - 118 edges
@@ -77,8 +79,6 @@
 10. `Container` - 48 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Record real pipeline runs for the demo's sample questions.  The public demo se` --uses--> `Settings`  [INFERRED]
-  D:\Projects & Stuff\self_correcting_rag\scripts\record_samples.py → D:\Projects & Stuff\self_correcting_rag\src\scrag\config.py
 - `build_verifier()` --calls--> `test_verifier_is_only_built_when_admins_and_keys_are_configured()`  [INFERRED]
   D:\Projects & Stuff\self_correcting_rag\src\scrag\auth.py → D:\Projects & Stuff\self_correcting_rag\tests\test_auth.py
 - `Bearer-JWT verification for the operator/admin (e.g. Supabase Auth).  Two key` --uses--> `Settings`  [INFERRED]
@@ -87,100 +87,102 @@
   D:\Projects & Stuff\self_correcting_rag\src\scrag\auth.py → D:\Projects & Stuff\self_correcting_rag\src\scrag\config.py
 - `A verifier when JWT admin auth is configured (keys and at least one admin), else` --uses--> `Settings`  [INFERRED]
   D:\Projects & Stuff\self_correcting_rag\src\scrag\auth.py → D:\Projects & Stuff\self_correcting_rag\src\scrag\config.py
+- `evaluate()` --calls--> `to_jsonable()`  [INFERRED]
+  D:\Projects & Stuff\self_correcting_rag\src\scrag\cli.py → D:\Projects & Stuff\self_correcting_rag\src\scrag\evaluation.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
 Cohesion: 0.04
-Nodes (105): The demo's daily live-run budget, stored in Postgres so it survives restarts., database(), A migrated, emptied test database (skips without TEST_DATABASE_URL)., ConversationStore, make_title(), connection(), Database, _driver() (+97 more)
+Nodes (122): Vector store interface shared by all backends., Abstract nearest-neighbour store over chunk embeddings.      Implementations own, Add ``vectors`` (shape ``(n, dim)``) with their ``chunks``., Return the ``top_k`` most similar chunks to ``query_vector``., Remove all vectors and chunks., Persist the index to disk., Load a persisted index if present. Returns True if anything loaded., Number of stored chunks. (+114 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.04
-Nodes (113): Vector store interface shared by all backends., Abstract nearest-neighbour store over chunk embeddings.      Implementations own, Add ``vectors`` (shape ``(n, dim)``) with their ``chunks``., Return the ``top_k`` most similar chunks to ``query_vector``., Remove all vectors and chunks., Persist the index to disk., Load a persisted index if present. Returns True if anything loaded., Number of stored chunks. (+105 more)
+Cohesion: 0.05
+Nodes (72): The demo's daily live-run budget, stored in Postgres so it survives restarts., database(), A migrated, emptied test database (skips without TEST_DATABASE_URL)., connection(), Database, _driver(), Postgres connection management.  Design constraints (free tier, see TARGET_ARC, Connect (and apply migrations) once; raise ``DatabaseUnavailableError`` if down. (+64 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.05
-Nodes (64): ABC, _normalize(), snapshot(), info(), Show effective configuration and index status., IndexIncompatibleError, A persisted index cannot be loaded with the current configuration., FaissVectorStore (+56 more)
+Nodes (65): ABC, _normalize(), snapshot(), info(), Show effective configuration and index status., IndexIncompatibleError, A persisted index cannot be loaded with the current configuration., FaissVectorStore (+57 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.04
-Nodes (77): Chunker, Text chunking.  Splits documents into overlapping, roughly sentence-aligned char, Character-window chunker with overlap.      Args:         chunk_size: Maximum, Split ``text`` into non-empty chunks, none longer than ``chunk_size``., Yield sentence-ish units split on paragraph then sentence boundaries., Seed the next chunk with overlap context, staying within chunk_size., sample_chunks(), DocumentsNotFoundError (+69 more)
+Nodes (79): Chunker, Text chunking.  Splits documents into overlapping, roughly sentence-aligned char, Character-window chunker with overlap.      Args:         chunk_size: Maximum, Split ``text`` into non-empty chunks, none longer than ``chunk_size``., Yield sentence-ish units split on paragraph then sentence boundaries., Seed the next chunk with overlap context, staying within chunk_size., FakeEmbedder, Deterministic bag-of-words embedder over a fixed vocabulary. (+71 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.09
-Nodes (76): error_body(), FastAPI application factory.  ``create_app`` builds the app, wires a :class:`Con, Reject oversized uploads before the multipart body is read.      Starlette spo, Assign a request ID, expose it in a header, and contain unhandled errors., RequestContextMiddleware, UploadLimitMiddleware, BaseModel, _bearer() (+68 more)
+Cohesion: 0.04
+Nodes (76): Create the FastAPI app.      Args:         settings: Configuration; falls back t, BaseSettings, agent(), _bootstrap(), _db_connect(), db_downgrade(), db_status(), db_upgrade() (+68 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.04
-Nodes (74): Create the FastAPI app.      Args:         settings: Configuration; falls back t, BaseSettings, agent(), _bootstrap(), _db_connect(), db_downgrade(), db_status(), db_upgrade() (+66 more)
-
-### Community 6 - "Community 6"
 Cohesion: 0.07
 Nodes (60): build_verifier(), JWTVerifier, Bearer-JWT verification for the operator/admin (e.g. Supabase Auth).  Two key, A verifier when JWT admin auth is configured (keys and at least one admin), else, VectorStore, OpenAICompatibleClient, build_container(), build_retriever() (+52 more)
 
+### Community 6 - "Community 6"
+Cohesion: 0.09
+Nodes (74): error_body(), FastAPI application factory.  ``create_app`` builds the app, wires a :class:`Con, Reject oversized uploads before the multipart body is read.      Starlette spo, Assign a request ID, expose it in a header, and contain unhandled errors., RequestContextMiddleware, UploadLimitMiddleware, BaseModel, _bearer() (+66 more)
+
 ### Community 7 - "Community 7"
-Cohesion: 0.04
-Nodes (69): create_app(), Create the FastAPI app.      Args:         settings: Configuration; falls bac, The token's claims if it is valid, else None (the reason is logged)., fake_embedder(), FakeEmbedder, _hermetic_env(), _next(), Shared test fixtures and fakes.  The fakes let the entire pipeline (retrieval → (+61 more)
+Cohesion: 0.07
+Nodes (62): fake_embedder(), FakeChatClient, _hermetic_env(), _next(), Shared test fixtures and fakes.  The fakes let the entire pipeline (retrieval →, Keep a developer's real keys and SCRAG_* overrides out of every test., Scriptable ChatClient. Routes each call by role via the system prompt.      Ea, evaluate_answers() (+54 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.06
-Nodes (64): FakeChatClient, Scriptable ChatClient. Routes each call by role via the system prompt.      Ea, evaluate_answers(), GeneratorAgent, Attempt, A single generate→evaluate attempt within the self-correction loop., _select_best(), _sort_by_relevance() (+56 more)
+Cohesion: 0.07
+Nodes (51): ApiError, request(), create_app(), Create the FastAPI app.      Args:         settings: Configuration; falls bac, configure_logging(), Attach the current request ID to every record., Configure the root logger. Idempotent within a process., RequestIdFilter (+43 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.13
-Nodes (39): Conversation history, scoped to a session.  Every query filters on ``session_i, Raise :class:`NotFoundError` unless the conversation belongs to the session., Record a question and its answer. Creates the conversation when         ``conve, get_persistence(), require_session(), DocumentTooLongError, UnreadableDocumentError, UnsupportedFileTypeError (+31 more)
+Cohesion: 0.11
+Nodes (43): ConversationStore, make_title(), Conversation history, scoped to a session.  Every query filters on ``session_i, Raise :class:`NotFoundError` unless the conversation belongs to the session., Record a question and its answer. Creates the conversation when         ``conve, get_persistence(), require_session(), DocumentTooLongError (+35 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.15
 Nodes (17): PersistentDailyBudget, status(), _client(), test_daily_budget_exhausts_and_resets_next_utc_day(), test_demo_budget_exhaustion_and_refund(), test_demo_ingest_requires_operator_token(), test_demo_query_length_and_top_k_caps(), test_demo_rate_limit_returns_429_with_retry_after() (+9 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.22
-Nodes (14): evaluate_retrieval(), hit_at_k(), load_golden(), ndcg_at_k(), recall_at_k(), reciprocal_rank(), RetrievalReport, to_jsonable() (+6 more)
+Cohesion: 0.12
+Nodes (18): CLI error handling: operator-friendly messages instead of tracebacks., test_ingest_with_missing_docs_dir_fails_cleanly(), test_query_without_llm_key_fails_cleanly(), _registry(), _search_registry(), test_disabled_tool_is_denied_even_when_approved(), test_registry_statuses(), test_sensitive_tool_needs_explicit_approval() (+10 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.29
-Nodes (5): ApiError, request(), call(), main(), Smoke-test a running SCRAG API (local container or the live deployment).  Usag
+Cohesion: 0.14
+Nodes (15): BM25Index, Lowercase tokens without stopwords; compounds are kept whole plus split., Okapi BM25 over a fixed list of texts (row-aligned with a vector store)., BM25 score for every row containing at least one query term., The ``n`` best ``(row, score)`` pairs with a positive score, best first., Fuse ranked lists of ids: each list adds ``1 / (k + rank)`` (rank from 1)., reciprocal_rank_fusion(), tokenize() (+7 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.5
-Nodes (0): 
+Cohesion: 0.26
+Nodes (13): evaluate_retrieval(), hit_at_k(), load_golden(), ndcg_at_k(), recall_at_k(), reciprocal_rank(), RetrievalReport, to_jsonable() (+5 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.27
+Nodes (10): The token's claims if it is valid, else None (the reason is logged)., _ingest(), Bearer-JWT admin authentication (e.g. Supabase Auth) for operator endpoints., test_admin_jwt_grants_operator_rights_on_the_demo(), test_invalid_or_non_admin_jwts_are_rejected(), test_issuer_is_checked_when_configured(), test_jwks_verification_rejects_algorithm_confusion(), test_missing_credentials_are_rejected() (+2 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 1.0
-Nodes (1): Backward-compatible entry point.  Prefer installing the package (``pip install -
+Cohesion: 0.4
+Nodes (0): 
 
 ### Community 16 - "Community 16"
-Cohesion: 1.0
+Cohesion: 0.67
 Nodes (0): 
 
 ### Community 17 - "Community 17"
 Cohesion: 1.0
-Nodes (1): Whether an LLM key is configured (agents require this).
+Nodes (1): Backward-compatible entry point.  Prefer installing the package (``pip install -
 
 ### Community 18 - "Community 18"
 Cohesion: 1.0
-Nodes (1): Whether a database is configured (sessions, uploads, history, jobs).
+Nodes (0): 
 
 ### Community 19 - "Community 19"
 Cohesion: 1.0
-Nodes (1): Deterministic, collision-resistant id for a chunk.
+Nodes (1): Whether an LLM key is configured (agents require this).
 
 ### Community 20 - "Community 20"
 Cohesion: 1.0
-Nodes (1): The value retrieval ranked by: fused score in hybrid mode, else cosine.
+Nodes (1): Whether a database is configured (sessions, uploads, history, jobs).
 
 ### Community 21 - "Community 21"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Deterministic, collision-resistant id for a chunk.
 
 ### Community 22 - "Community 22"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): The value retrieval ranked by: fused score in hybrid mode, else cosine.
 
 ### Community 23 - "Community 23"
 Cohesion: 1.0
@@ -192,205 +194,213 @@ Nodes (0):
 
 ### Community 25 - "Community 25"
 Cohesion: 1.0
-Nodes (1): Character-window chunker with overlap.      Args:         chunk_size: Maximum ch
+Nodes (0): 
 
 ### Community 26 - "Community 26"
 Cohesion: 1.0
-Nodes (1): Split ``text`` into non-empty chunks, none longer than ``chunk_size``.
+Nodes (0): 
 
 ### Community 27 - "Community 27"
 Cohesion: 1.0
-Nodes (1): Yield sentence-ish units split on paragraph then sentence boundaries.
+Nodes (1): Character-window chunker with overlap.      Args:         chunk_size: Maximum ch
 
 ### Community 28 - "Community 28"
 Cohesion: 1.0
-Nodes (1): Seed the next chunk with overlap context, staying within chunk_size.
+Nodes (1): Split ``text`` into non-empty chunks, none longer than ``chunk_size``.
 
 ### Community 29 - "Community 29"
 Cohesion: 1.0
-Nodes (1): Build the vector index from documents in the configured docs directory.
+Nodes (1): Yield sentence-ish units split on paragraph then sentence boundaries.
 
 ### Community 30 - "Community 30"
 Cohesion: 1.0
-Nodes (1): Ask a question against the ingested corpus.
+Nodes (1): Seed the next chunk with overlap context, staying within chunk_size.
 
 ### Community 31 - "Community 31"
 Cohesion: 1.0
-Nodes (1): Run the FastAPI service with uvicorn.
+Nodes (1): Build the vector index from documents in the configured docs directory.
 
 ### Community 32 - "Community 32"
 Cohesion: 1.0
-Nodes (1): Show effective configuration and index status.
+Nodes (1): Ask a question against the ingested corpus.
 
 ### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (1): Whether an LLM key is configured (agents require this).
+Nodes (1): Run the FastAPI service with uvicorn.
 
 ### Community 34 - "Community 34"
 Cohesion: 1.0
-Nodes (1): Return a process-wide cached Settings instance.
+Nodes (1): Show effective configuration and index status.
 
 ### Community 35 - "Community 35"
 Cohesion: 1.0
-Nodes (1): Anything that can turn text into fixed-size vectors.
+Nodes (1): Whether an LLM key is configured (agents require this).
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (1): Dimensionality of the produced vectors.
+Nodes (1): Return a process-wide cached Settings instance.
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
-Nodes (1): Local embedder backed by ``sentence-transformers`` (lazy-loaded).
+Nodes (1): Anything that can turn text into fixed-size vectors.
 
 ### Community 38 - "Community 38"
 Cohesion: 1.0
-Nodes (1): Render log records as single-line JSON documents.
+Nodes (1): Dimensionality of the produced vectors.
 
 ### Community 39 - "Community 39"
 Cohesion: 1.0
-Nodes (1): Configure the root logger. Idempotent within a process.
+Nodes (1): Local embedder backed by ``sentence-transformers`` (lazy-loaded).
 
 ### Community 40 - "Community 40"
 Cohesion: 1.0
-Nodes (1): Return a module-scoped logger.
+Nodes (1): Render log records as single-line JSON documents.
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (1): A unit of retrievable text derived from a source document.
+Nodes (1): Configure the root logger. Idempotent within a process.
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
-Nodes (1): Deterministic, collision-resistant id for a chunk.
+Nodes (1): Return a module-scoped logger.
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (1): A chunk plus the scores assigned to it during retrieval/guardrailing.
+Nodes (1): A unit of retrievable text derived from a source document.
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
-Nodes (1): A single generate→evaluate attempt within the self-correction loop.
+Nodes (1): Deterministic, collision-resistant id for a chunk.
 
 ### Community 45 - "Community 45"
 Cohesion: 1.0
-Nodes (1): The final result returned by the pipeline for a query.
+Nodes (1): A chunk plus the scores assigned to it during retrieval/guardrailing.
 
 ### Community 46 - "Community 46"
 Cohesion: 1.0
-Nodes (1): Trimmed chunk representation for API responses.
+Nodes (1): A single generate→evaluate attempt within the self-correction loop.
 
 ### Community 47 - "Community 47"
 Cohesion: 1.0
-Nodes (1): Extract the first number from ``text`` and clamp it to [0, 1].
+Nodes (1): The final result returned by the pipeline for a query.
 
 ### Community 48 - "Community 48"
 Cohesion: 1.0
-Nodes (1): Parse a JSON object from ``text``, tolerating surrounding prose/fences.
+Nodes (1): Trimmed chunk representation for API responses.
 
 ### Community 49 - "Community 49"
 Cohesion: 1.0
-Nodes (1): Raised when an LLM request ultimately fails (after retries).
+Nodes (1): Extract the first number from ``text`` and clamp it to [0, 1].
 
 ### Community 50 - "Community 50"
 Cohesion: 1.0
-Nodes (1): Minimal chat interface the agents depend on (easily faked in tests).
+Nodes (1): Parse a JSON object from ``text``, tolerating surrounding prose/fences.
 
 ### Community 51 - "Community 51"
 Cohesion: 1.0
-Nodes (1): Return the assistant message content for a single-turn prompt.
+Nodes (1): Raised when an LLM request ultimately fails (after retries).
 
 ### Community 52 - "Community 52"
+Cohesion: 1.0
+Nodes (1): Minimal chat interface the agents depend on (easily faked in tests).
+
+### Community 53 - "Community 53"
+Cohesion: 1.0
+Nodes (1): Return the assistant message content for a single-turn prompt.
+
+### Community 54 - "Community 54"
 Cohesion: 1.0
 Nodes (1): Concrete :class:`ChatClient` backed by the ``openai`` SDK.
 
 ## Knowledge Gaps
 - **90 isolated node(s):** `Backward-compatible entry point.  Prefer installing the package (``pip install -`, `Smoke-test a running SCRAG API (local container or the live deployment).  Usag`, `Run every quality gate CI runs, in the same order: one command, one exit code.`, `Text chunking.  Splits documents into overlapping, roughly sentence-aligned char`, `Character-window chunker with overlap.      Args:         chunk_size: Maximum` (+85 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 15`** (2 nodes): `main.py`, `Backward-compatible entry point.  Prefer installing the package (``pip install -`
+- **Thin community `Community 17`** (2 nodes): `main.py`, `Backward-compatible entry point.  Prefer installing the package (``pip install -`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 16`** (2 nodes): `layout.tsx`, `RootLayout()`
+- **Thin community `Community 18`** (2 nodes): `layout.tsx`, `RootLayout()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 17`** (1 nodes): `Whether an LLM key is configured (agents require this).`
+- **Thin community `Community 19`** (1 nodes): `Whether an LLM key is configured (agents require this).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 18`** (1 nodes): `Whether a database is configured (sessions, uploads, history, jobs).`
+- **Thin community `Community 20`** (1 nodes): `Whether a database is configured (sessions, uploads, history, jobs).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 19`** (1 nodes): `Deterministic, collision-resistant id for a chunk.`
+- **Thin community `Community 21`** (1 nodes): `Deterministic, collision-resistant id for a chunk.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 20`** (1 nodes): `The value retrieval ranked by: fused score in hybrid mode, else cosine.`
+- **Thin community `Community 22`** (1 nodes): `The value retrieval ranked by: fused score in hybrid mode, else cosine.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 21`** (1 nodes): `__init__.py`
+- **Thin community `Community 23`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 22`** (1 nodes): `next-env.d.ts`
+- **Thin community `Community 24`** (1 nodes): `next-env.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 23`** (1 nodes): `next.config.ts`
+- **Thin community `Community 25`** (1 nodes): `next.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 24`** (1 nodes): `postcss.config.mjs`
+- **Thin community `Community 26`** (1 nodes): `postcss.config.mjs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 25`** (1 nodes): `Character-window chunker with overlap.      Args:         chunk_size: Maximum ch`
+- **Thin community `Community 27`** (1 nodes): `Character-window chunker with overlap.      Args:         chunk_size: Maximum ch`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 26`** (1 nodes): `Split ``text`` into non-empty chunks, none longer than ``chunk_size``.`
+- **Thin community `Community 28`** (1 nodes): `Split ``text`` into non-empty chunks, none longer than ``chunk_size``.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 27`** (1 nodes): `Yield sentence-ish units split on paragraph then sentence boundaries.`
+- **Thin community `Community 29`** (1 nodes): `Yield sentence-ish units split on paragraph then sentence boundaries.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (1 nodes): `Seed the next chunk with overlap context, staying within chunk_size.`
+- **Thin community `Community 30`** (1 nodes): `Seed the next chunk with overlap context, staying within chunk_size.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (1 nodes): `Build the vector index from documents in the configured docs directory.`
+- **Thin community `Community 31`** (1 nodes): `Build the vector index from documents in the configured docs directory.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 30`** (1 nodes): `Ask a question against the ingested corpus.`
+- **Thin community `Community 32`** (1 nodes): `Ask a question against the ingested corpus.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 31`** (1 nodes): `Run the FastAPI service with uvicorn.`
+- **Thin community `Community 33`** (1 nodes): `Run the FastAPI service with uvicorn.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 32`** (1 nodes): `Show effective configuration and index status.`
+- **Thin community `Community 34`** (1 nodes): `Show effective configuration and index status.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 33`** (1 nodes): `Whether an LLM key is configured (agents require this).`
+- **Thin community `Community 35`** (1 nodes): `Whether an LLM key is configured (agents require this).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 34`** (1 nodes): `Return a process-wide cached Settings instance.`
+- **Thin community `Community 36`** (1 nodes): `Return a process-wide cached Settings instance.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (1 nodes): `Anything that can turn text into fixed-size vectors.`
+- **Thin community `Community 37`** (1 nodes): `Anything that can turn text into fixed-size vectors.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (1 nodes): `Dimensionality of the produced vectors.`
+- **Thin community `Community 38`** (1 nodes): `Dimensionality of the produced vectors.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 37`** (1 nodes): `Local embedder backed by ``sentence-transformers`` (lazy-loaded).`
+- **Thin community `Community 39`** (1 nodes): `Local embedder backed by ``sentence-transformers`` (lazy-loaded).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (1 nodes): `Render log records as single-line JSON documents.`
+- **Thin community `Community 40`** (1 nodes): `Render log records as single-line JSON documents.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (1 nodes): `Configure the root logger. Idempotent within a process.`
+- **Thin community `Community 41`** (1 nodes): `Configure the root logger. Idempotent within a process.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (1 nodes): `Return a module-scoped logger.`
+- **Thin community `Community 42`** (1 nodes): `Return a module-scoped logger.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (1 nodes): `A unit of retrievable text derived from a source document.`
+- **Thin community `Community 43`** (1 nodes): `A unit of retrievable text derived from a source document.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (1 nodes): `Deterministic, collision-resistant id for a chunk.`
+- **Thin community `Community 44`** (1 nodes): `Deterministic, collision-resistant id for a chunk.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (1 nodes): `A chunk plus the scores assigned to it during retrieval/guardrailing.`
+- **Thin community `Community 45`** (1 nodes): `A chunk plus the scores assigned to it during retrieval/guardrailing.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (1 nodes): `A single generate→evaluate attempt within the self-correction loop.`
+- **Thin community `Community 46`** (1 nodes): `A single generate→evaluate attempt within the self-correction loop.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (1 nodes): `The final result returned by the pipeline for a query.`
+- **Thin community `Community 47`** (1 nodes): `The final result returned by the pipeline for a query.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (1 nodes): `Trimmed chunk representation for API responses.`
+- **Thin community `Community 48`** (1 nodes): `Trimmed chunk representation for API responses.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (1 nodes): `Extract the first number from ``text`` and clamp it to [0, 1].`
+- **Thin community `Community 49`** (1 nodes): `Extract the first number from ``text`` and clamp it to [0, 1].`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `Parse a JSON object from ``text``, tolerating surrounding prose/fences.`
+- **Thin community `Community 50`** (1 nodes): `Parse a JSON object from ``text``, tolerating surrounding prose/fences.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `Raised when an LLM request ultimately fails (after retries).`
+- **Thin community `Community 51`** (1 nodes): `Raised when an LLM request ultimately fails (after retries).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `Minimal chat interface the agents depend on (easily faked in tests).`
+- **Thin community `Community 52`** (1 nodes): `Minimal chat interface the agents depend on (easily faked in tests).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `Return the assistant message content for a single-turn prompt.`
+- **Thin community `Community 53`** (1 nodes): `Return the assistant message content for a single-turn prompt.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (1 nodes): `Concrete :class:`ChatClient` backed by the ``openai`` SDK.`
+- **Thin community `Community 54`** (1 nodes): `Concrete :class:`ChatClient` backed by the ``openai`` SDK.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Chunk` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 11`?**
-  _High betweenness centrality (0.109) - this node is a cross-community bridge._
-- **Why does `Pluggable vector store backends.` connect `Community 0` to `Community 1`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 8`, `Community 9`, `Community 10`?**
-  _High betweenness centrality (0.100) - this node is a cross-community bridge._
-- **Why does `NumpyVectorStore` connect `Community 2` to `Community 0`, `Community 1`, `Community 3`, `Community 4`, `Community 6`, `Community 7`, `Community 8`, `Community 10`?**
-  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+- **Why does `Chunk` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 12`?**
+  _High betweenness centrality (0.121) - this node is a cross-community bridge._
+- **Why does `Pluggable vector store backends.` connect `Community 0` to `Community 1`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 9`, `Community 10`, `Community 11`?**
+  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+- **Why does `FakeChatClient` connect `Community 7` to `Community 0`, `Community 4`, `Community 5`, `Community 8`, `Community 10`, `Community 14`?**
+  _High betweenness centrality (0.073) - this node is a cross-community bridge._
 - **Are the 115 inferred relationships involving `Chunk` (e.g. with `RateLimiter` and `Budget`) actually correct?**
   _`Chunk` has 115 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 87 inferred relationships involving `RetrievedChunk` (e.g. with `SelfCorrectingRAGPipeline` and `The self-correcting RAG orchestrator.  Stages:     1. Retrieval          — embed`) actually correct?**

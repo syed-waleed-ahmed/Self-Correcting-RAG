@@ -28,6 +28,7 @@ from __future__ import annotations
 import contextvars
 import json
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -141,11 +142,24 @@ class AgentWorkflow:
         self.eval_threshold = eval_threshold
 
     # --- public ------------------------------------------------------------------
-    def run(self, task: str, *, approved: frozenset[str] = frozenset()) -> AgentRunResult:
-        run = _Run(self.limits)
+    def run(
+        self,
+        task: str,
+        *,
+        approved: frozenset[str] = frozenset(),
+        registry: ToolRegistry | None = None,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> AgentRunResult:
+        """Run the bounded workflow for ``task``.
+
+        ``registry`` replaces the default tools for this run only (e.g. a
+        document search over a visitor's own uploads). ``on_event`` receives
+        each trace event as it is recorded (used for streaming responses).
+        """
+        run = _Run(self.limits, on_event)
         ledger = UsageLedger()
         with track_usage(ledger):
-            result = self._run(task.strip(), approved, run)
+            result = self._run(task.strip(), approved, run, registry or self.registry)
         result.usage = {**ledger.summary(), "llm_calls_made": run.llm_calls}
         result.limits = {
             "max_steps": self.limits.max_steps,
@@ -156,12 +170,14 @@ class AgentWorkflow:
         return result
 
     # --- stages ------------------------------------------------------------------
-    def _run(self, task: str, approved: frozenset[str], run: _Run) -> AgentRunResult:
-        plan, source = self._plan(task, run)
+    def _run(
+        self, task: str, approved: frozenset[str], run: _Run, registry: ToolRegistry
+    ) -> AgentRunResult:
+        plan, source = self._plan(task, run, registry)
         pending = [
             step
             for step in plan
-            if (tool := self.registry.tools.get(step.tool)) is not None
+            if (tool := registry.tools.get(step.tool)) is not None
             and tool.permission == "sensitive"
             and step.tool not in approved
         ]
@@ -175,7 +191,7 @@ class AgentWorkflow:
                 pending_approval=pending,
             )
 
-        steps = self._execute(plan, approved, run)
+        steps = self._execute(plan, approved, run, registry)
         evidence = _evidence(steps)
         if not evidence:
             return AgentRunResult(
@@ -213,7 +229,9 @@ class AgentWorkflow:
             attempts=attempts,
         )
 
-    def _plan(self, task: str, run: _Run) -> tuple[list[PlanStep], Literal["planner", "fallback"]]:
+    def _plan(
+        self, task: str, run: _Run, registry: ToolRegistry
+    ) -> tuple[list[PlanStep], Literal["planner", "fallback"]]:
         catalog = [
             {
                 "name": spec["name"],
@@ -224,7 +242,7 @@ class AgentWorkflow:
                     for key, prop in spec["input_schema"].get("properties", {}).items()
                 },
             }
-            for spec in self.registry.specs()
+            for spec in registry.specs()
             if spec["enabled"]
         ]
         system = _PLANNER_SYSTEM.format(
@@ -265,12 +283,12 @@ class AgentWorkflow:
         return steps, "planner"
 
     def _execute(
-        self, plan: list[PlanStep], approved: frozenset[str], run: _Run
+        self, plan: list[PlanStep], approved: frozenset[str], run: _Run, registry: ToolRegistry
     ) -> list[StepResult]:
         run.check_time()
 
         def call(step: PlanStep) -> ToolCall:
-            return self.registry.invoke(step.tool, step.input, approved=approved)
+            return registry.invoke(step.tool, step.input, approved=approved)
 
         workers = max(1, min(self.limits.max_parallel, len(plan)))
         with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -340,25 +358,32 @@ class AgentWorkflow:
 class _Run:
     """Per-run budget and trace bookkeeping."""
 
-    def __init__(self, limits: WorkflowLimits) -> None:
+    def __init__(
+        self, limits: WorkflowLimits, listener: Callable[[dict[str, Any]], None] | None = None
+    ) -> None:
         self.limits = limits
         self.deadline = time.monotonic() + limits.timeout_s
         self.llm_calls = 0
         self.trace: list[TraceEvent] = []
+        self.listener = listener
 
     def event(
         self, stage: Any, name: str, status: str, latency_ms: float = 0.0, detail: str = ""
     ) -> None:
-        self.trace.append(
-            TraceEvent(
-                seq=len(self.trace) + 1,
-                stage=stage,
-                name=name,
-                status=status,
-                latency_ms=round(latency_ms, 1),
-                detail=detail[:300],
-            )
+        event = TraceEvent(
+            seq=len(self.trace) + 1,
+            stage=stage,
+            name=name,
+            status=status,
+            latency_ms=round(latency_ms, 1),
+            detail=detail[:300],
         )
+        self.trace.append(event)
+        if self.listener is not None:
+            try:
+                self.listener(event.model_dump())
+            except Exception:  # noqa: BLE001 - progress reporting is best effort
+                logger.warning("Agent progress listener failed", exc_info=True)
 
     def check_time(self) -> None:
         if time.monotonic() > self.deadline:

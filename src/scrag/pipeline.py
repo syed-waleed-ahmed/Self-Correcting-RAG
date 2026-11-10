@@ -24,6 +24,10 @@ Failure rules:
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
+from typing import Any
+
 from .agents.evaluator import EvaluatorAgent
 from .agents.generator import GeneratorAgent
 from .agents.guardrail import GuardrailAgent
@@ -35,6 +39,27 @@ from .retriever import Retriever, SupportsRetrieve
 logger = get_logger(__name__)
 
 NO_CONTEXT_ANSWER = "I could not find any relevant context to answer this question."
+
+# Receives one JSON-serializable progress event per pipeline stage.
+ProgressListener = Callable[[dict[str, Any]], None]
+
+
+def _ms(start: float) -> float:
+    return round((time.perf_counter() - start) * 1000, 1)
+
+
+def _safe(listener: ProgressListener | None) -> ProgressListener:
+    """Wrap a listener so it can never break the pipeline."""
+    if listener is None:
+        return lambda event: None
+
+    def emit(event: dict[str, Any]) -> None:
+        try:
+            listener(event)
+        except Exception:  # noqa: BLE001 - progress reporting is best effort
+            logger.warning("Progress listener failed", exc_info=True)
+
+    return emit
 
 
 class SelfCorrectingRAGPipeline:
@@ -65,17 +90,37 @@ class SelfCorrectingRAGPipeline:
         top_k: int | None = None,
         *,
         retriever: SupportsRetrieve | None = None,
+        on_event: ProgressListener | None = None,
     ) -> PipelineResult:
-        """Answer ``query``. ``retriever`` overrides the default one for this run only
-        (e.g. a session-scoped retriever over a visitor's uploads)."""
+        """Answer ``query``.
+
+        ``retriever`` overrides the default one for this run only (e.g. a
+        session-scoped retriever over a visitor's uploads). ``on_event``
+        receives one progress event per stage (used for streaming responses);
+        a failing listener never breaks the run.
+        """
         if not query or not query.strip():
             raise InvalidQueryError("query must not be empty")
+        emit = _safe(on_event)
 
         # 1. Retrieval
+        start = time.perf_counter()
         retrieved = (retriever or self.retriever).retrieve(query, top_k or self.top_k)
+        emit({"stage": "retrieve", "status": "done", "count": len(retrieved), "ms": _ms(start)})
 
         # 2. Guardrail filtering (with fallback to raw retrieval)
-        filtered = self.guardrail.filter(query, retrieved)
+        start = time.perf_counter()
+        filtered = self.guardrail.filter(query, retrieved) if retrieved else []
+        emit(
+            {
+                "stage": "guardrail",
+                "status": "done",
+                "kept": len(filtered),
+                "of": len(retrieved),
+                "fallback": bool(retrieved) and not filtered,
+                "ms": _ms(start),
+            }
+        )
         if not filtered:
             logger.info("Guardrail dropped everything; falling back to raw retrieval")
             filtered = retrieved
@@ -93,7 +138,7 @@ class SelfCorrectingRAGPipeline:
             )
 
         # 3. Generate → evaluate → self-correct.
-        history = self._self_correct(query, filtered)
+        history = self._self_correct(query, filtered, emit)
         best = self._select_best(history)
         return PipelineResult(
             query=query,
@@ -107,20 +152,42 @@ class SelfCorrectingRAGPipeline:
             used_chunks=self._sort_by_relevance(filtered),
         )
 
-    def _self_correct(self, query: str, chunks: list[RetrievedChunk]) -> list[Attempt]:
+    def _self_correct(
+        self,
+        query: str,
+        chunks: list[RetrievedChunk],
+        emit: ProgressListener = lambda event: None,
+    ) -> list[Attempt]:
         history: list[Attempt] = []
         previous_answer: str | None = None
         feedback: str | None = None
         for step in range(1, self.max_self_correct_steps + 1):
+            emit({"stage": "generate", "status": "started", "attempt": step})
+            start = time.perf_counter()
             try:
                 answer = self.generator.generate(query, chunks, previous_answer, feedback)
             except LLMError:
+                emit({"stage": "generate", "status": "error", "attempt": step, "ms": _ms(start)})
                 if not history:
                     raise
                 logger.warning("Generation failed on attempt %d; keeping earlier attempts", step)
                 break
+            emit({"stage": "generate", "status": "done", "attempt": step, "ms": _ms(start)})
 
+            start = time.perf_counter()
             evaluation = self.evaluator.evaluate(query, answer, chunks)
+            emit(
+                {
+                    "stage": "evaluate",
+                    "status": evaluation.status,
+                    "attempt": step,
+                    "score": evaluation.score,
+                    "passed": evaluation.ok
+                    and evaluation.score is not None
+                    and evaluation.score >= self.eval_threshold,
+                    "ms": _ms(start),
+                }
+            )
             history.append(
                 Attempt(
                     number=step,

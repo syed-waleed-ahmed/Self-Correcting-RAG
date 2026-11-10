@@ -6,6 +6,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Phase 5: web UI)
+
+- Web UI pages, all on one shared shell (connection status, live budget,
+  navigation):
+  - **Ask** (`/`):
+    - live pipeline progress;
+    - scope selector (sample docs, my documents or both);
+    - a conversation thread, with turns saved to the session;
+    - a history sidebar to reopen or delete conversations.
+  - **My documents** (`/documents/`):
+    - a private session showing its expiry, usage and limits;
+    - drag-and-drop upload with client-side checks;
+    - live ingestion status, per-document delete;
+    - two-step "delete all my data".
+  - **Agent** (`/agent/`):
+    - the trace streamed live;
+    - the plan and each tool call's input, status and latency;
+    - numbered evidence matching the answer's `[S1]` citations;
+    - verification, and token and limit usage.
+  - **How it works** (`/about/`): the pipeline, measured retrieval quality,
+    free-tier architecture and privacy.
+- **Streaming endpoints:** `POST /api/v1/query/stream` and
+  `POST /api/v1/agent/run/stream` (Server-Sent Events: `progress`, `result`,
+  `error`). The pipeline reports each stage (retrieve, guardrail, generate,
+  evaluate per attempt), and the agent reports its trace events as they
+  happen. A failing listener never breaks a run.
+- **The agent can search a visitor's uploads** (`scope` on `/agent/run`). The
+  per-session tool set is read-only: document search and calculator.
+- **`DemoInfo.features`:** `sessions`, `agent` and `streaming`, so the UI
+  shows only what the server offers.
+- **Tests:**
+  - backend: progress events, both streaming endpoints (including error
+    events, budget refunds and pre-stream HTTP errors) and session-scoped
+    agent search;
+  - web unit tests on Node's built-in runner (SSE parser, session store,
+    history pairing, agent evidence numbering), run in CI.
+
+
 ## [0.3.0] - 2026-11-10
 
 Highlights: a bounded tool-using agent (Phase 3), optional Postgres

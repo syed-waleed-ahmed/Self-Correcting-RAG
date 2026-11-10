@@ -33,7 +33,7 @@ adopted (see "Decisions taken" below):
 | 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Live** on Render (2026-11-10) |
 | 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
 | 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
-| 5 | Frontend | Not started (a minimal page ships in 2b) |
+| 5 | Frontend | **Done** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
 | 6 | Observability and evaluation | Not started |
 | 7 | Security hardening, quotas, load tests | Not started |
 | 8 | Full free-tier deployment | Not started |
@@ -246,11 +246,39 @@ Acceptance:
 - Tenant-isolation tests prove that session A cannot read session B.
 - A job interrupted by a restart resumes.
 
-## Phase 5: Frontend
+## Phase 5: Frontend (done 2026-11-10)
 
-Chat (SSE streaming, citations, attempt timeline), knowledge base (upload,
-status, delete), agent workspace (plan, steps, tool calls), evaluation view.
-Admin pages are visible to the authenticated owner only.
+Delivered (ADR 0009):
+- **Chat** (Ask page):
+  - live stage-by-stage progress over SSE;
+  - scope selection (sample docs, my documents or both);
+  - conversation threads and saved history;
+  - an attempt timeline;
+  - sources with all retrieval scores.
+- **Knowledge base:** a session, uploads with live ingestion status, deletion,
+  and "delete all my data".
+- **Agent workspace:** the live trace, plan, tool calls, evidence for `[S#]`
+  citations, verification, and usage against the limits.
+- **Evaluation view** ("How it works"): measured results from
+  `docs/evaluation.md`.
+
+Verified end to end in Chrome against the real API (fastembed, live Groq,
+Postgres), served with the production security headers:
+- streaming progress arrived incrementally;
+- an upload was ingested and answered from;
+- a follow-up stayed in the same conversation and reopened from history;
+- a session-scoped agent run completed (2-step plan, verification 1.0);
+- "delete all my data" removed everything (the old token answered 401);
+- 0 CSP violations and no console errors.
+
+Deferred:
+- Admin pages behind sign-in. Operators use the API with the operator token
+  or an admin JWT.
+- Token-level streaming of the answer text. Progress is per stage (ADR 0009).
+
+Original scope: chat (SSE streaming, citations, attempt timeline), knowledge
+base (upload, status, delete), agent workspace (plan, steps, tool calls),
+evaluation view; admin pages visible to the authenticated owner only.
 
 ## Phase 6: Observability and evaluation
 

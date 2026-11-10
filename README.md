@@ -117,6 +117,15 @@ without touching orchestration logic.
 - Public demo mode: per-client rate limits, a global daily budget of live LLM
   queries, recorded sample answers (labelled as cached), a retrieval-only
   `/search` endpoint, and a Next.js web UI (`web/`).
+- Web UI (`web/`, static export), with four pages:
+  - **Ask:** answers stream live stage by stage (retrieval, guardrail, each
+    attempt and its grade), with search over the sample docs, your uploads, or
+    both, plus a conversation thread and saved history;
+  - **My documents:** a private 24-hour session, drag-and-drop uploads with
+    live ingestion status, per-document delete and "delete all my data";
+  - **Agent:** the plan, tool calls, cited evidence, verification and token
+    usage, streamed as the agent works;
+  - **How it works:** the pipeline and the measured retrieval results.
 - Real self-correction: a bounded generate/evaluate loop that feeds the
   evaluator's critique back to the generator and never regresses to a worse
   answer than one it already produced. Every attempt is returned for inspection.
@@ -239,6 +248,7 @@ unversioned paths still work for the routes that predate it.
 | POST   | `/search` | yes  | Retrieval only (no LLM): ranked chunks with scores |
 | POST   | `/query`  | yes  | Run the full self-correcting pipeline for a query |
 | POST   | `/agent/run` | yes | Bounded agent: plan, tools, write, verify       |
+| POST   | `/query/stream`, `/agent/run/stream` | yes | The same, streamed as Server-Sent Events |
 | GET    | `/agent/tools` | no | Tool catalog with permissions and input schemas |
 | POST   | `/ingest` | yes  | (Re)build the index from the configured docs dir  |
 | GET    | `/docs`   |  no  | Interactive OpenAPI (Swagger) UI                  |
@@ -257,7 +267,13 @@ under `/api/v1` (send the token as `X-Session-Token`):
 | GET / DELETE | `/conversations`, `/conversations/{id}` | Saved history |
 | GET    | `/admin/stats` | Row counts (operator only) |
 
-`POST /query` and `POST /search` take `scope`: `samples` (default), `session`
+The `/stream` variants send `event: progress` once per stage (pipeline) or per
+trace event (agent). They end with `event: result`, which carries the same body
+as the plain endpoint, or with `event: error`, which uses the usual error shape
+plus `status`. Validation, rate-limit and session checks still fail as ordinary
+HTTP errors before the stream starts.
+
+`POST /query`, `POST /search` and `POST /agent/run` take `scope`: `samples` (default), `session`
 (your uploads) or `all` (both, fused). With a session, `/query` saves the turn
 and returns `conversation_id`; pass it back to continue the conversation.
 
@@ -383,7 +399,7 @@ src/scrag/
 scripts/verify.py      single command for every CI quality gate
 scripts/smoke.py       smoke test for a running API (local or deployed)
 scripts/record_samples.py  record real runs for the demo's sample questions
-web/                   Next.js + Tailwind demo UI (static export, Vercel)
+web/                   Next.js + Tailwind UI (static export): ask, documents, agent, about
 data/eval/             golden dataset for `scrag eval`
 data/demo/             recorded sample answers served by the demo
 docs/                  evaluation, deployment, decisions (ADRs), planning

@@ -14,3 +14,4 @@ recorded here once implemented.
 | [0006](0006-defer-pgvector-to-phase-4.md) | pgvector arrives with the database in Phase 4 | Accepted, implemented in Phase 4 |
 | [0007](0007-plain-sql-migrations.md) | Plain SQL migrations (up + down) instead of Alembic | Accepted, implemented in Phase 4 |
 | [0008](0008-postgres-persistence-design.md) | Persistence design: Neon Free, anonymous sessions, durable jobs, no idle traffic | Accepted, implemented in Phase 4 |
+| [0009](0009-sse-stage-streaming.md) | Stream progress per stage over SSE, not answer tokens | Accepted, implemented in Phase 5 |

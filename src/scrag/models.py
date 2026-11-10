@@ -157,6 +157,9 @@ class QueryResponse(BaseModel):
 
 class AgentRunRequest(BaseModel):
     task: str = Field(min_length=1, max_length=1000, description="What the agent should do.")
+    scope: Scope = Field(
+        default="samples", description="Which documents the agent's search tool can see."
+    )
     approved_tools: list[str] = Field(
         default_factory=list,
         max_length=10,
@@ -178,6 +181,10 @@ class DemoInfo(BaseModel):
     sample_questions: list[str]
     limits: dict[str, float | int]
     budget: dict[str, int | str] | None
+    features: dict[str, bool] = Field(
+        default_factory=dict,
+        description="What this server offers: sessions (uploads + history), agent, streaming.",
+    )
 
 
 class IngestRequest(BaseModel):
