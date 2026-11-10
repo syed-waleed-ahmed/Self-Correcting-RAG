@@ -34,7 +34,7 @@ def main() -> int:
     steps += [
         ("lint", [py, "-m", "ruff", "check", "."]),
         ("format", [py, "-m", "ruff", "format", "--check", "."]),
-        ("types", [py, "-m", "mypy", "src"]),
+        ("types", [py, "-m", "mypy", "src", "scripts"]),
         ("tests", [py, "-m", "pytest", "-q"]),
     ]
 

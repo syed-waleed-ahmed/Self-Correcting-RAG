@@ -191,19 +191,17 @@ def build_container(
         logger.warning("Could not load sample answers from %s: %s", settings.samples_path, exc)
 
     persistence: Persistence | None = None
+    budget: Budget | None = None
     if database is not None or settings.has_persistence:
         from .persistence import PersistentDailyBudget, build_persistence
 
         persistence = build_persistence(
             settings, embedder=embedder, chunker=chunker, database=database
         )
-    budget: Budget | None = None
-    if settings.demo_mode:
-        budget = (
-            PersistentDailyBudget(persistence.db, settings.demo_daily_query_budget)
-            if persistence is not None
-            else DailyBudget(settings.demo_daily_query_budget)
-        )
+        if settings.demo_mode:  # shared by every instance through Postgres
+            budget = PersistentDailyBudget(persistence.db, settings.demo_daily_query_budget)
+    elif settings.demo_mode:
+        budget = DailyBudget(settings.demo_daily_query_budget)
 
     container = Container(
         settings=settings,

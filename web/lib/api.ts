@@ -46,6 +46,18 @@ export interface QueryResponse {
   scope?: Scope;
   conversation_id?: string | null;
   history_saved?: boolean | null;
+  usage?: UsageSummary | null;
+  timings_ms?: Record<string, number> | null;
+}
+
+/** What one run cost: provider-reported tokens, and an estimate if prices are configured. */
+export interface UsageSummary {
+  llm_calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  by_model: Record<string, { calls: number; prompt_tokens: number; completion_tokens: number }>;
+  estimated_cost_usd: number | null;
 }
 
 export interface SearchResponse {
@@ -190,7 +202,7 @@ export interface AgentRunResult {
   verification: { score: number | null; explanation: string; status: string; passed: boolean } | null;
   attempts: number;
   trace: TraceEvent[];
-  usage: { total_tokens?: number; llm_calls_made?: number; [key: string]: unknown };
+  usage: { total_tokens?: number; llm_calls_made?: number; estimated_cost_usd?: number | null; [key: string]: unknown };
   limits: { max_steps?: number; max_llm_calls?: number; timeout_s?: number };
   error: string | null;
 }

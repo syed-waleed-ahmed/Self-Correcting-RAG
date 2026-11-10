@@ -67,8 +67,8 @@ def main() -> int:
                 time.sleep(args.pause)
             start = time.perf_counter()
             result = container.pipeline.run(question, top_k=top_k)
-            response = _to_response(result).model_dump(
-                exclude={"cached", "cached_at", "cache_source"}
+            response = _to_response(result, settings.llm_prices).model_dump(
+                exclude={"cached", "cached_at", "cache_source", "conversation_id", "history_saved"}
             )
             print(
                 f"[{i + 1}/{len(QUESTIONS)}] {result.evaluation_status} "

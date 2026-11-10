@@ -38,3 +38,23 @@
 {"id": "q38", "question": "Which endpoint runs retrieval without calling a language model?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["search"], "kind": "lexical"}
 {"id": "q39", "question": "What error code is returned after the demo's daily budget is spent?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["demo_budget_exhausted"], "kind": "lexical"}
 {"id": "q40", "question": "Why is the sample knowledge base built into the container image?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["restart"], "kind": "semantic"}
+{"id": "q41", "question": "What does each SCRAG chunk record about its source document?", "relevant_sources": ["chunking.md"], "answer_contains": ["position", "hash"], "kind": "lexical"}
+{"id": "q42", "question": "When does the chunker fall back to hard character cuts?", "relevant_sources": ["chunking.md"], "answer_contains": ["sentence"], "kind": "semantic"}
+{"id": "q43", "question": "What is the trade-off between small and large chunks?", "relevant_sources": ["chunking.md"], "answer_contains": ["precise"], "kind": "semantic"}
+{"id": "q44", "question": "What alternative to fixed-length chunking groups sentences by topic?", "relevant_sources": ["chunking.md"], "answer_contains": ["semantic"], "kind": "semantic"}
+{"id": "q45", "question": "How much memory does the free API instance have?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["512"], "kind": "lexical"}
+{"id": "q46", "question": "How long does a sleeping free instance take to wake up?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["minute"], "kind": "semantic"}
+{"id": "q47", "question": "Why does the demo answer its sample questions from recorded results?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["limit"], "kind": "semantic"}
+{"id": "q48", "question": "What happens to uploads and history when the free database is paused?", "relevant_sources": ["free-tier-deployment.md"], "answer_contains": ["degrade"], "kind": "semantic"}
+{"id": "q49", "question": "What does grounding mean in retrieval-augmented generation?", "relevant_sources": ["hallucination.md"], "answer_contains": ["context"], "kind": "semantic"}
+{"id": "q50", "question": "What should the model say when the context does not contain the answer?", "relevant_sources": ["hallucination.md"], "answer_contains": ["not sure"], "kind": "semantic"}
+{"id": "q51", "question": "How should retrieved passages and tool outputs be treated to resist prompt injection?", "relevant_sources": ["prompt-injection.md"], "answer_contains": ["data"], "kind": "semantic"}
+{"id": "q52", "question": "What precautions should a public demo take with uploaded files?", "relevant_sources": ["prompt-injection.md"], "answer_contains": ["size"], "kind": "semantic"}
+{"id": "q53", "question": "What does faithfulness measure in answer evaluation?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["supported"], "kind": "semantic"}
+{"id": "q54", "question": "What does answer relevance ask?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["address"], "kind": "semantic"}
+{"id": "q55", "question": "What is a golden dataset in retrieval evaluation?", "relevant_sources": ["evaluation-metrics.md"], "answer_contains": ["label"], "kind": "lexical"}
+{"id": "q56", "question": "What are the main tuning knobs of Reciprocal Rank Fusion?", "relevant_sources": ["hybrid-search-rrf.md"], "answer_contains": ["candidate"], "kind": "lexical"}
+{"id": "q57", "question": "Which response header carries the request identifier?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["x-request-id"], "kind": "lexical"}
+{"id": "q58", "question": "Which HTTP status does a rate-limited request receive?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["429"], "kind": "lexical"}
+{"id": "q59", "question": "Under which path prefix is the versioned API served?", "relevant_sources": ["scrag-api.md"], "answer_contains": ["/api/v1"], "kind": "lexical"}
+{"id": "q60", "question": "What does the evaluator agent return?", "relevant_sources": ["doc3.txt"], "answer_contains": ["explanation"], "kind": "semantic"}

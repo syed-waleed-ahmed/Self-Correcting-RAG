@@ -13,6 +13,7 @@ Request validation errors keep FastAPI's standard 422 shape.
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -29,6 +30,7 @@ from ..config import Settings, get_settings
 from ..container import Container, build_container
 from ..errors import ScragError
 from ..logging_config import configure_logging, get_logger, request_id_var
+from ..observability import configure_tracing, metrics, set_attributes, shutdown_tracing, span
 from .routes import router
 from .workspace import router as workspace_router
 
@@ -103,6 +105,69 @@ class RequestContextMiddleware:
             request_id_var.reset(token)
 
 
+def route_template(scope: Scope) -> str:
+    """The matched route as a template, e.g. ``/api/v1/documents/{document_id}``.
+
+    Rebuilt from the request path and the matched path parameters, because an
+    included router's route object doesn't carry its mount prefix. Requests that
+    matched no route share the label ``unmatched``.
+    """
+    if scope.get("route") is None:
+        return "unmatched"
+    path: str = scope.get("path", "")
+    params = {str(value): name for name, value in (scope.get("path_params") or {}).items()}
+    if not params:
+        return path
+    return "/".join("{" + params[seg] + "}" if seg in params else seg for seg in path.split("/"))
+
+
+class MetricsMiddleware:
+    """Count and time every HTTP request by route template, and open its span.
+
+    Sits outside RequestContextMiddleware, so it records the final status code
+    (including sanitized 500s) and can tag the span with the request ID. Routes
+    are FastAPI path templates; unmatched paths share one ``unmatched`` label, so
+    scanners can't inflate the metric cardinality.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        method = scope["method"]
+        start = time.perf_counter()
+        status = 500
+        request_id: str | None = None
+
+        async def send_and_observe(message: Message) -> None:
+            nonlocal status, request_id
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                for key, value in message.get("headers", []):
+                    if key.lower() == b"x-request-id":
+                        request_id = value.decode("latin-1")
+            await send(message)
+
+        with span(f"HTTP {method}", http__request__method=method) as current:
+            try:
+                await self.app(scope, receive, send_and_observe)
+            finally:
+                route = route_template(scope)
+                metrics.HTTP_REQUESTS.labels(method, route, str(status)).inc()
+                metrics.HTTP_DURATION.labels(method, route).observe(time.perf_counter() - start)
+                if current is not None:
+                    current.update_name(f"HTTP {method} {route}")
+                    set_attributes(
+                        current,
+                        http__route=route,
+                        http__response__status_code=status,
+                        scrag__request_id=request_id,
+                    )
+
+
 class UploadLimitMiddleware:
     """Reject oversized uploads before the multipart body is read.
 
@@ -151,10 +216,14 @@ def create_app(
     """
     settings = settings or get_settings()
     configure_logging(settings.log_level, json_output=settings.log_json)
+    metrics.BUILD_INFO.labels(__version__).set(1)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = settings
+        tracing = settings.otel_exporter != "none" and configure_tracing(
+            settings.otel_exporter, service_name=settings.otel_service_name, version=__version__
+        )
         c = app.state.container = container or build_container(settings)
         loaded = c.load_index()
         if c.persistence is not None:
@@ -171,6 +240,8 @@ def create_app(
         finally:
             if c.persistence is not None:
                 c.persistence.stop()
+            if tracing:
+                shutdown_tracing()
 
     app = FastAPI(
         title="Self-Correcting RAG",
@@ -180,13 +251,15 @@ def create_app(
     )
 
     # Order matters: the last middleware added is the outermost. CORS wraps the
-    # request-context layer so even sanitized 500s carry CORS headers, and the
-    # upload limit runs inside it so its errors carry a request ID.
+    # request-context layer so even sanitized 500s carry CORS headers, the upload
+    # limit runs inside it so its errors carry a request ID, and metrics wrap the
+    # request context so they see the final status.
     app.add_middleware(
         UploadLimitMiddleware,
         max_bytes=settings.upload_max_bytes + _MULTIPART_OVERHEAD_BYTES,
     )
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(MetricsMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,

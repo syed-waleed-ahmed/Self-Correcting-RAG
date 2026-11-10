@@ -229,6 +229,19 @@ def evaluate(
     ),
     limit: int = typer.Option(0, help="Only use the first N questions (0 = all)."),
     output: Path | None = typer.Option(None, help="Write the full JSON report here."),
+    compare: int = typer.Option(
+        0,
+        help="Compare baseline / hybrid / self_correcting / agent answers on a stratified "
+        "sample of N questions (spends LLM quota; 0 = off).",
+    ),
+    configs: str = typer.Option(
+        "baseline,hybrid,self_correcting,agent", help="Configurations for --compare."
+    ),
+    answer_top_k: int = typer.Option(3, help="Chunks per answer in --compare (demo uses 3)."),
+    tpm: int = typer.Option(6000, help="Tokens-per-minute budget for --compare pacing."),
+    retrieval: bool = typer.Option(
+        True, "--retrieval/--no-retrieval", help="Also measure retrieval (needs labels)."
+    ),
 ) -> None:
     """Measure retrieval (and optionally answer) quality on a golden dataset."""
     import json
@@ -249,9 +262,10 @@ def evaluate(
         _fail("--mode must be dense, hybrid or both.")
 
     report: dict[str, object] = {"golden": str(golden), "index_size": len(container.store)}
-    typer.secho(f"\nRetrieval @k={k} over {len(items)} questions", bold=True)
-    typer.echo(f"{'mode':<8} {'recall':>7} {'hit':>7} {'MRR':>7} {'nDCG':>7} {'ms':>7}")
-    for m in modes:
+    if retrieval:
+        typer.secho(f"\nRetrieval @k={k} over {len(items)} questions", bold=True)
+        typer.echo(f"{'mode':<8} {'recall':>7} {'hit':>7} {'MRR':>7} {'nDCG':>7} {'ms':>7}")
+    for m in modes if retrieval else []:
         retriever = build_retriever(settings, container.embedder, container.store, mode=m)
         r = evaluate_retrieval(retriever, items, k)
         report[f"retrieval_{m}"] = to_jsonable(r)
@@ -272,6 +286,58 @@ def evaluate(
             f"corrected: {a.corrected}  keyword coverage: {a.keyword_coverage:.3f}  "
             f"mean latency: {a.mean_latency_ms:.0f} ms"
         )
+
+    if compare > 0:
+        from .evaluation_compare import CONFIGS, compare_answers, report_to_json, stratified
+
+        if container.pipeline is None or container.agent is None:
+            _fail("--compare needs an LLM key (GROQ_API_KEY).")
+        chosen = tuple(c.strip() for c in configs.split(",") if c.strip())
+        if any(c not in CONFIGS for c in chosen):
+            _fail(f"--configs must be a subset of {','.join(CONFIGS)}.")
+        sample = stratified(items, compare)
+        typer.secho(
+            f"\nComparing {len(chosen)} configurations on {len(sample)} questions "
+            f"(top_k={answer_top_k}, pacing at {tpm} tokens/min)",
+            bold=True,
+        )
+
+        def progress(row: dict[str, Any]) -> None:
+            if "error" in row:
+                typer.echo(f"  {row['id']} {row['config']:<16} ERROR {row['error']}")
+            else:
+                score = "n/a" if row["score"] is None else f"{row['score']:.2f}"
+                cover = row["keyword_coverage"]
+                if row["expect_abstain"]:
+                    outcome = "declined" if row["abstained"] else "ANSWERED"
+                else:
+                    outcome = "keywords n/a" if cover is None else f"keywords {cover:.2f}"
+                typer.echo(
+                    f"  {row['id']} {row['config']:<16} score {score}  {outcome:<13} "
+                    f"{row['tokens']:>5} tok  {row['latency_ms']:>7.0f} ms"
+                )
+
+        comparison = compare_answers(
+            container, sample, chosen, top_k=answer_top_k, tokens_per_minute=tpm, on_row=progress
+        )
+        report["comparison"] = report_to_json(comparison)
+        typer.secho(f"\nAnswers (judge: {comparison.judge_model})", bold=True)
+        typer.echo(
+            f"{'config':<16} {'judge':>6} {'pass':>6} {'keywords':>9} {'abstain':>8} "
+            f"{'tokens':>7} {'calls':>6} {'ms':>7} {'n':>3}"
+        )
+
+        def fmt(value: Any, spec: str) -> str:
+            return "n/a" if value is None else format(value, spec)
+
+        for name, row in comparison.summary.items():
+            typer.echo(
+                f"{name:<16} {fmt(row['mean_judge_score'], '.3f'):>6} "
+                f"{fmt(row['pass_rate'], '.2f'):>6} {fmt(row['keyword_coverage'], '.3f'):>9} "
+                f"{fmt(row['abstain_rate'], '.2f'):>8} "
+                f"{fmt(row['mean_tokens'], '.0f'):>7} {fmt(row['mean_llm_calls'], '.1f'):>6} "
+                f"{fmt(row['mean_latency_ms'], '.0f'):>7} {row['answered']:>3}"
+            )
 
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)

@@ -34,7 +34,7 @@ adopted (see "Decisions taken" below):
 | 3 | Agent framework and tool registry | **Done** (UI for agents is part of Phase 5) |
 | 4 | Persistence and identity | **Live** (2026-11-10): Render Free + Neon Free (Frankfurt) |
 | 5 | Frontend | **Live** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
-| 6 | Observability and evaluation | Not started |
+| 6 | Observability and evaluation | **Done** (2026-11-10): metrics, cost per answer, optional tracing, 60-question golden set, answer-quality comparison |
 | 7 | Security hardening, quotas, load tests | Not started |
 | 8 | Full free-tier deployment | Not started |
 | 9 | Live demo verification | Not started |
@@ -280,7 +280,23 @@ Original scope: chat (SSE streaming, citations, attempt timeline), knowledge
 base (upload, status, delete), agent workspace (plan, steps, tool calls),
 evaluation view; admin pages visible to the authenticated owner only.
 
-## Phase 6: Observability and evaluation
+## Phase 6: Observability and evaluation (done 2026-11-10)
+
+Delivered (ADR 0010):
+- Prometheus `/metrics`, with bounded cardinality and operator-only access on
+  the demo.
+- Per-answer `usage` and `timings_ms`, shown in the UI. A cost estimate is
+  reported only when prices are configured.
+- Optional OpenTelemetry spans for HTTP requests, pipeline stages, LLM calls,
+  the agent and tools.
+- The golden set grew from 40 to 60 questions and retrieval was re-measured.
+- `scrag eval --compare` measured answers across the baseline, hybrid,
+  self-correcting and agent configurations, plus a hard/unanswerable set.
+- **Measured and published:** on the sample corpus, self-correction never
+  changed an outcome, at about 2.6 times the cost; retrieval depth was the
+  bottleneck. The demo's `top_k` went from 3 to 5 as a result.
+
+Original scope:
 
 Scope:
 - OpenTelemetry traces (exported locally / to the console by default).

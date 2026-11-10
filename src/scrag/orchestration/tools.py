@@ -30,6 +30,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from ..logging_config import get_logger
+from ..observability import metrics, span
 
 logger = get_logger(__name__)
 
@@ -97,6 +98,8 @@ class ToolRegistry:
                 latency_ms=round((time.perf_counter() - start) * 1000, 2),
             )
             logger.info("tool %s -> %s (%.1f ms)", name, status, call.latency_ms)
+            # Tool names come from the planner (LLM output): never a free-form label.
+            metrics.TOOL_CALLS.labels(name if name in self.tools else "unknown", status).inc()
             return call
 
         tool = self.tools.get(name)
@@ -112,10 +115,11 @@ class ToolRegistry:
             return done("invalid_input", error=_short_validation_error(exc))
 
         # Run in a worker so a hung tool can't stall the workflow past its timeout.
-        ctx = contextvars.copy_context()
         pool = ThreadPoolExecutor(max_workers=1)
         try:
-            output = pool.submit(ctx.run, tool.run, args).result(timeout=tool.timeout_s)
+            with span(f"tool.{name}", scrag__tool=name, scrag__permission=tool.permission):
+                ctx = contextvars.copy_context()  # inside the span, so the tool nests under it
+                output = pool.submit(ctx.run, tool.run, args).result(timeout=tool.timeout_s)
         except FutureTimeout:
             return done("timeout", error=f"exceeded {tool.timeout_s:g}s")
         except Exception as exc:  # noqa: BLE001 - tool failures are recorded, never raised

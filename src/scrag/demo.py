@@ -74,11 +74,14 @@ class Budget(Protocol):
 
     limit: int
 
-    def consume(self, units: int = 1) -> None: ...
+    def consume(self, units: int = 1) -> None:
+        """Take ``units`` from today's quota; raises DemoBudgetExhaustedError when spent."""
 
-    def refund(self, units: int = 1) -> None: ...
+    def refund(self, units: int = 1) -> None:
+        """Give units back (the run failed before producing an answer)."""
 
-    def status(self) -> dict[str, Any]: ...
+    def status(self) -> dict[str, Any]:
+        """``limit``, ``remaining`` and ``resets_at`` (ISO 8601, UTC) for today."""
 
 
 class DailyBudget:

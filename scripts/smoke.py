@@ -58,16 +58,19 @@ def main() -> int:
             failures.append(name)
 
     deadline = time.monotonic() + args.wake_timeout
-    status, health, headers = 0, None, {}
+    status: int = 0
+    health: Any = None
+    headers: dict[str, str] = {}
+    last_error: object = None
     while time.monotonic() < deadline:
         try:
             status, health, headers = call(base, "GET", "/api/v1/health")
             if status == 200:
                 break
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
-            pass
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+            last_error = exc  # still waking up; retry until the deadline
         time.sleep(5)
-    check("health is 200 (after wake-up)", status == 200, status)
+    check("health is 200 (after wake-up)", status == 200, last_error or status)
     if status != 200:
         return 1
     check("bundled index is loaded", health.get("index_size", 0) > 0, health)

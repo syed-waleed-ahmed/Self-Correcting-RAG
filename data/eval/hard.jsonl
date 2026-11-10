@@ -1,0 +1,6 @@
+{"id": "h01", "question": "What relevance threshold does the guardrail use by default?", "relevant_sources": ["scrag-architecture.md"], "answer_contains": ["0.3"], "kind": "hard"}
+{"id": "h02", "question": "Which language model does SCRAG use by default?", "relevant_sources": ["scrag-architecture.md"], "answer_contains": ["qwen"], "kind": "hard"}
+{"id": "h03", "question": "In which year was the Reciprocal Rank Fusion paper published?", "relevant_sources": [], "answer_contains": [], "kind": "unanswerable", "expect_abstain": true}
+{"id": "h04", "question": "What is the capital of Australia?", "relevant_sources": [], "answer_contains": [], "kind": "unanswerable", "expect_abstain": true}
+{"id": "h05", "question": "How many parameters does the all-MiniLM-L6-v2 embedding model have?", "relevant_sources": [], "answer_contains": [], "kind": "unanswerable", "expect_abstain": true}
+{"id": "h06", "question": "In which Apache Lucene version did BM25 become the default similarity?", "relevant_sources": [], "answer_contains": [], "kind": "unanswerable", "expect_abstain": true}

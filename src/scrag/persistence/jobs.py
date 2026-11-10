@@ -32,6 +32,7 @@ from typing import Any
 
 from ..errors import DatabaseUnavailableError
 from ..logging_config import get_logger
+from ..observability import metrics
 from .database import Database
 from .records import JobRecord
 
@@ -247,10 +248,12 @@ class JobWorker:
         except Exception as exc:  # noqa: BLE001 - any handler failure is retried
             logger.warning("Job %s (%s) attempt %d failed: %r", job.id, job.kind, job.attempts, exc)
             status = self.queue.fail(job, self.worker_id, f"{type(exc).__name__}: {exc}")
+            metrics.JOBS.labels(job.kind, "failed" if status == "failed" else "retried").inc()
             if status == "failed" and handler.on_failure is not None:
                 handler.on_failure(job, exc)
         else:
             if self.queue.complete(job, self.worker_id, result):
+                metrics.JOBS.labels(job.kind, "succeeded").inc()
                 logger.info(
                     "Job %s (%s) succeeded in %.0f ms",
                     job.id,
@@ -282,6 +285,8 @@ class JobWorker:
     ) -> None:
         logger.warning("Job %s (%s) failed permanently: %s", job.id, job.kind, exc.code)
         status = self.queue.fail(job, self.worker_id, exc.code, permanent=True)
+        kind = job.kind if job.kind in self.handlers else "unknown"
+        metrics.JOBS.labels(kind, "failed").inc()
         if status == "failed" and handler is not None and handler.on_failure is not None:
             handler.on_failure(job, exc)
 

@@ -34,7 +34,9 @@ from .agents.guardrail import GuardrailAgent
 from .errors import InvalidQueryError, LLMError
 from .logging_config import get_logger
 from .models import Attempt, PipelineResult, ResultStatus, RetrievedChunk
+from .observability import metrics, set_attributes, span
 from .retriever import Retriever, SupportsRetrieve
+from .usage import UsageLedger, track_usage
 
 logger = get_logger(__name__)
 
@@ -101,16 +103,56 @@ class SelfCorrectingRAGPipeline:
         """
         if not query or not query.strip():
             raise InvalidQueryError("query must not be empty")
-        emit = _safe(on_event)
+        notify = _safe(on_event)
+        timings: dict[str, float] = {}
 
+        def emit(event: dict[str, Any]) -> None:
+            # Stage timings feed the response, the metrics and the listener.
+            ms = event.get("ms")
+            if ms is not None and event.get("status") != "started":
+                stage = str(event["stage"])
+                timings[stage] = round(timings.get(stage, 0.0) + ms, 1)
+                metrics.STAGE_DURATION.labels(stage).observe(ms / 1000)
+            notify(event)
+
+        active = retriever or self.retriever
+        ledger = UsageLedger()
+        start = time.perf_counter()
+        with (
+            span("pipeline.run", scrag__retrieval_mode=getattr(active, "mode", None)) as current,
+            track_usage(ledger),
+        ):
+            try:
+                result = self._run(query, top_k or self.top_k, active, emit)
+            except Exception:
+                metrics.PIPELINE_RUNS.labels("error").inc()
+                raise
+            set_attributes(
+                current,
+                scrag__status=result.evaluation_status,
+                scrag__attempts=result.attempts,
+                scrag__best_attempt=result.best_attempt,
+            )
+        timings["total"] = _ms(start)
+        metrics.PIPELINE_RUNS.labels(result.evaluation_status).inc()
+        metrics.PIPELINE_ATTEMPTS.observe(result.attempts)
+        return result.model_copy(update={"usage": ledger.summary(), "timings_ms": timings})
+
+    def _run(
+        self, query: str, top_k: int, retriever: SupportsRetrieve, emit: ProgressListener
+    ) -> PipelineResult:
         # 1. Retrieval
         start = time.perf_counter()
-        retrieved = (retriever or self.retriever).retrieve(query, top_k or self.top_k)
+        with span("pipeline.retrieve", scrag__top_k=top_k) as current:
+            retrieved = retriever.retrieve(query, top_k)
+            set_attributes(current, scrag__chunks=len(retrieved))
         emit({"stage": "retrieve", "status": "done", "count": len(retrieved), "ms": _ms(start)})
 
         # 2. Guardrail filtering (with fallback to raw retrieval)
         start = time.perf_counter()
-        filtered = self.guardrail.filter(query, retrieved) if retrieved else []
+        with span("pipeline.guardrail", scrag__candidates=len(retrieved)) as current:
+            filtered = self.guardrail.filter(query, retrieved) if retrieved else []
+            set_attributes(current, scrag__kept=len(filtered))
         emit(
             {
                 "stage": "guardrail",
@@ -165,7 +207,8 @@ class SelfCorrectingRAGPipeline:
             emit({"stage": "generate", "status": "started", "attempt": step})
             start = time.perf_counter()
             try:
-                answer = self.generator.generate(query, chunks, previous_answer, feedback)
+                with span("pipeline.generate", scrag__attempt=step):
+                    answer = self.generator.generate(query, chunks, previous_answer, feedback)
             except LLMError:
                 emit({"stage": "generate", "status": "error", "attempt": step, "ms": _ms(start)})
                 if not history:
@@ -175,7 +218,9 @@ class SelfCorrectingRAGPipeline:
             emit({"stage": "generate", "status": "done", "attempt": step, "ms": _ms(start)})
 
             start = time.perf_counter()
-            evaluation = self.evaluator.evaluate(query, answer, chunks)
+            with span("pipeline.evaluate", scrag__attempt=step) as current:
+                evaluation = self.evaluator.evaluate(query, answer, chunks)
+                set_attributes(current, scrag__score=evaluation.score)
             emit(
                 {
                     "stage": "evaluate",

@@ -41,6 +41,7 @@ from ..errors import LLMError
 from ..llm.client import ChatClient
 from ..logging_config import get_logger
 from ..models import Chunk, RetrievedChunk
+from ..observability import metrics, set_attributes, span
 from ..usage import UsageLedger, track_usage
 from .tools import ToolCall, ToolRegistry
 
@@ -158,8 +159,15 @@ class AgentWorkflow:
         """
         run = _Run(self.limits, on_event)
         ledger = UsageLedger()
-        with track_usage(ledger):
+        with span("agent.run") as current, track_usage(ledger):
             result = self._run(task.strip(), approved, run, registry or self.registry)
+            set_attributes(
+                current,
+                scrag__status=result.status,
+                scrag__plan_source=result.plan_source,
+                scrag__steps=len(result.steps),
+            )
+        metrics.AGENT_RUNS.labels(result.status).inc()
         result.usage = {**ledger.summary(), "llm_calls_made": run.llm_calls}
         result.limits = {
             "max_steps": self.limits.max_steps,
