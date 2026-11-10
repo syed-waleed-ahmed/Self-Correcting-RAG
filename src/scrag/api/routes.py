@@ -75,6 +75,18 @@ def require_auth(request: Request) -> None:
         )
 
 
+def require_auth_unless_demo(request: Request) -> None:
+    """Public read endpoints on the demo; token-protected otherwise.
+
+    In demo mode, /search and /query are open to anonymous visitors (guarded by
+    the rate limit and daily budget) and the operator token only protects
+    state-changing endpoints such as /ingest.
+    """
+    if request.app.state.settings.demo_mode:
+        return
+    require_auth(request)
+
+
 def client_key(request: Request) -> str:
     """Rate-limit key: the client IP, read from a trusted proxy header if configured."""
     settings = request.app.state.settings
@@ -173,7 +185,7 @@ def demo_info(request: Request) -> DemoInfo:
     "/search",
     response_model=SearchResponse,
     tags=["rag"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth_unless_demo)],
     responses=_ERRORS,
 )
 def search(request: Request, body: SearchRequest) -> SearchResponse:
@@ -196,7 +208,7 @@ def search(request: Request, body: SearchRequest) -> SearchResponse:
     "/query",
     response_model=QueryResponse,
     tags=["rag"],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_auth_unless_demo)],
     responses=_ERRORS,
 )
 def query(request: Request, body: QueryRequest) -> QueryResponse:

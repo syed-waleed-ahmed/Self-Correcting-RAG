@@ -252,3 +252,26 @@ def test_forwarded_ip_uses_trusted_hop(settings, sample_chunks):
             client.post("/api/v1/search", json={"query": "rag"}, headers=other).status_code == 200
         )
     assert resp.status_code == 429
+
+
+def test_demo_read_endpoints_are_public_even_with_operator_token(settings, sample_chunks):
+    """Regression (found on the first live deploy): the operator token must not
+    lock anonymous visitors out of /search and /query in demo mode."""
+    client, _, _ = _client(
+        settings,
+        sample_chunks,
+        demo_mode=True,
+        api_auth_token="op-token",
+        demo_rate_limit_burst=10,
+    )
+    with client:
+        assert client.post("/api/v1/search", json={"query": "rag"}).status_code == 200
+        assert client.post("/api/v1/query", json={"query": QUESTION}).status_code == 200
+        assert client.post("/api/v1/ingest", json={}).status_code == 401  # still protected
+
+
+def test_token_still_protects_everything_outside_demo_mode(settings, sample_chunks):
+    client, _, _ = _client(settings, sample_chunks, api_auth_token="op-token")
+    with client:
+        assert client.post("/api/v1/search", json={"query": "rag"}).status_code == 401
+        assert client.post("/api/v1/query", json={"query": QUESTION}).status_code == 401
