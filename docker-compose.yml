@@ -6,6 +6,10 @@
 #
 #   SCRAG_DATABASE_URL=postgresql://postgres:scrag@db:5432/scrag \
 #     docker compose --profile db up --build
+#
+# With a local Prometheus scraping /metrics (http://localhost:9090):
+#
+#   docker compose --profile observability up --build
 services:
   api:
     build: .
@@ -36,6 +40,14 @@ services:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 5s
       retries: 10
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["observability"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
 volumes:
   scrag_index:

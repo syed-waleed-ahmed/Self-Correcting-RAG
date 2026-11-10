@@ -169,7 +169,7 @@ Against the published Developer base limits for one model (8K TPM, 200K TPD,
 model. The free plan may be lower: its numbers aren't published. The demo
 design therefore needs:
 - cached answers for the curated sample questions;
-- `top_k=3` in demo mode;
+- `top_k=5` in demo mode (3 until 2026-11-10; raised because k = 3 missed answers that k = 5 retrieves; measured cost about 2.5k tokens per self-corrected answer);
 - one batched guardrail call instead of one call per chunk;
 - per-session and global daily budgets;
 - a clear "demo quota reached" state.

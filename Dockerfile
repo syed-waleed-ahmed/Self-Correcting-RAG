@@ -18,9 +18,10 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY src ./src
-# postgres/auth: sessions, uploads and history once SCRAG_DATABASE_URL is set,
-# and JWT admin auth once configured. Both stay inactive otherwise.
-RUN pip install --upgrade pip && pip install ".[onnx,docs,postgres,auth]"
+# postgres/auth/otel: sessions, uploads and history once SCRAG_DATABASE_URL is
+# set, JWT admin auth and OpenTelemetry tracing once configured. All stay inactive
+# (and unimported) otherwise.
+RUN pip install --upgrade pip && pip install ".[onnx,docs,postgres,auth,otel]"
 
 COPY data/docs ./data/docs
 COPY data/demo ./data/demo

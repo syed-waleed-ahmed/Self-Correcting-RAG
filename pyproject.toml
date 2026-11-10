@@ -39,6 +39,7 @@ dependencies = [
     "pydantic-settings>=2.2",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",  # file uploads (POST /api/v1/documents)
+    "prometheus-client>=0.20",  # GET /metrics
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,8 @@ faiss = ["faiss-cpu>=1.7"]
 postgres = ["psycopg[binary]>=3.2", "psycopg-pool>=3.2"]
 # Bearer-JWT admin authentication (e.g. Supabase Auth).
 auth = ["pyjwt[crypto]>=2.8"]
+# OpenTelemetry tracing (off unless SCRAG_OTEL_EXPORTER is set).
+otel = ["opentelemetry-sdk>=1.25", "opentelemetry-exporter-otlp-proto-http>=1.25"]
 # Everything.
 all = [
     "fastembed>=0.4",
@@ -66,6 +69,8 @@ all = [
     "psycopg[binary]>=3.2",
     "psycopg-pool>=3.2",
     "pyjwt[crypto]>=2.8",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
 ]
 # Development / CI.
 dev = [
@@ -79,6 +84,7 @@ dev = [
     "pyjwt[crypto]>=2.8",
     "pre-commit>=3.7",
     "pip-audit>=2.7",
+    "opentelemetry-sdk>=1.25",
 ]
 
 [project.urls]

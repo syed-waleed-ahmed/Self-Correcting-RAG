@@ -11,10 +11,12 @@ SDK's exception types.
 from __future__ import annotations
 
 import re
+import time
 from typing import Any, Protocol, runtime_checkable
 
 from ..errors import LLMError, LLMRateLimitError
 from ..logging_config import get_logger
+from ..observability import metrics, set_attributes, span
 from ..usage import current_ledger
 
 __all__ = ["ChatClient", "LLMError", "LLMRateLimitError", "OpenAICompatibleClient"]
@@ -97,23 +99,41 @@ class OpenAICompatibleClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        try:
-            response = self._client.chat.completions.create(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - normalize all provider errors
-            # Full provider detail goes to server logs only; the API layer
-            # returns a generic, client-safe message.
-            logger.error("LLM request failed for model %s: %s", model, exc)
-            if getattr(exc, "status_code", None) == 429:
-                raise LLMRateLimitError(f"LLM rate limited: {exc}") from exc
-            raise LLMError(f"LLM request failed: {exc}") from exc
+        start = time.perf_counter()
+        with span(
+            "llm.chat",
+            gen_ai__system="openai_compatible",
+            gen_ai__operation__name="chat",
+            gen_ai__request__model=model,
+        ) as current:
+            try:
+                response = self._client.chat.completions.create(**kwargs)
+            except Exception as exc:  # noqa: BLE001 - normalize all provider errors
+                rate_limited = getattr(exc, "status_code", None) == 429
+                metrics.LLM_CALLS.labels(model, "rate_limited" if rate_limited else "error").inc()
+                metrics.LLM_DURATION.labels(model).observe(time.perf_counter() - start)
+                # Full provider detail goes to server logs only; the API layer
+                # returns a generic, client-safe message.
+                logger.error("LLM request failed for model %s: %s", model, exc)
+                if rate_limited:
+                    raise LLMRateLimitError(f"LLM rate limited: {exc}") from exc
+                raise LLMError(f"LLM request failed: {exc}") from exc
 
-        usage = getattr(response, "usage", None)
-        ledger = current_ledger()
-        if ledger is not None and usage is not None:
-            ledger.record(
-                model,
-                int(getattr(usage, "prompt_tokens", 0) or 0),
-                int(getattr(usage, "completion_tokens", 0) or 0),
-            )
+            metrics.LLM_CALLS.labels(model, "ok").inc()
+            metrics.LLM_DURATION.labels(model).observe(time.perf_counter() - start)
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                prompt = int(getattr(usage, "prompt_tokens", 0) or 0)
+                completion = int(getattr(usage, "completion_tokens", 0) or 0)
+                metrics.LLM_TOKENS.labels(model, "prompt").inc(prompt)
+                metrics.LLM_TOKENS.labels(model, "completion").inc(completion)
+                set_attributes(
+                    current,
+                    gen_ai__usage__input_tokens=prompt,
+                    gen_ai__usage__output_tokens=completion,
+                )
+                ledger = current_ledger()
+                if ledger is not None:
+                    ledger.record(model, prompt, completion)
         content = response.choices[0].message.content
         return strip_reasoning(content or "")

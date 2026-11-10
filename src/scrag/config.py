@@ -134,7 +134,10 @@ class Settings(BaseSettings):
     demo_rate_limit_burst: int = Field(default=3, ge=1)
     demo_daily_query_budget: int = Field(default=30, ge=0)
     demo_max_query_chars: int = Field(default=300, ge=1)
-    demo_top_k: int = Field(default=3, ge=1, le=20)
+    # 5, not 3: on the 60-question golden set, hybrid hit@3 misses 2 questions
+    # that hit@5 retrieves, and a live comparison showed the pipeline then answers
+    # them correctly (docs/evaluation.md), for about 40% more tokens per answer.
+    demo_top_k: int = Field(default=5, ge=1, le=20)
 
     # --- Persistence: sessions, uploads, history, jobs (Phase 4) --------------------
     # Unset (default) keeps the API stateless: sample-corpus Q&A works without a
@@ -175,6 +178,15 @@ class Settings(BaseSettings):
     auth_issuer: str | None = None
     auth_audience: str = "authenticated"
     admin_subjects: list[str] = Field(default_factory=list)
+
+    # --- Observability (Phase 6) -----------------------------------------------------
+    # OpenTelemetry tracing: "none" (default), "console" or "otlp" (configure the
+    # collector with the standard OTEL_EXPORTER_OTLP_* variables). Needs [otel].
+    otel_exporter: Literal["none", "console", "otlp"] = "none"
+    otel_service_name: str = "scrag-api"
+    # Optional list prices, USD per million tokens, for cost *estimates*:
+    # {"model-id": {"input": 0.2, "output": 0.6}}. Unpriced models report null.
+    llm_prices: dict[str, dict[str, float]] = Field(default_factory=dict)
 
     # --- Logging ----------------------------------------------------------
     log_level: str = "INFO"

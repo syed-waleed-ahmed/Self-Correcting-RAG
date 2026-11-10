@@ -25,8 +25,13 @@ class UsageLedger:
     completion_tokens: int = 0
     by_model: dict[str, dict[str, int]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    # Set by track_usage when nested: usage is also forwarded to the outer ledger
+    # (e.g. an evaluation run that measures several pipeline runs).
+    parent: UsageLedger | None = field(default=None, repr=False)
 
     def record(self, model: str, prompt_tokens: int, completion_tokens: int) -> None:
+        if self.parent is not None:
+            self.parent.record(model, prompt_tokens, completion_tokens)
         with self._lock:
             self.calls += 1
             self.prompt_tokens += prompt_tokens
@@ -59,8 +64,33 @@ def current_ledger() -> UsageLedger | None:
 
 @contextmanager
 def track_usage(ledger: UsageLedger) -> Iterator[UsageLedger]:
+    outer = _current.get()
+    if outer is not None and outer is not ledger:
+        ledger.parent = outer
     token = _current.set(ledger)
     try:
         yield ledger
     finally:
         _current.reset(token)
+
+
+def estimate_cost(
+    by_model: dict[str, dict[str, int]], prices: dict[str, dict[str, float]]
+) -> float | None:
+    """Estimated USD cost at configured list prices (per million tokens).
+
+    ``prices`` maps a model id to ``{"input": usd, "output": usd}``. Returns None
+    when any model used has no configured price: SCRAG never guesses prices.
+    The demo runs on a free tier, so its real cost is 0; this answers "what
+    would this run cost on a paid plan at these prices?".
+    """
+    if not by_model:
+        return 0.0
+    total = 0.0
+    for model, usage in by_model.items():
+        price = prices.get(model)
+        if price is None or "input" not in price or "output" not in price:
+            return None
+        total += usage.get("prompt_tokens", 0) * price["input"] / 1_000_000
+        total += usage.get("completion_tokens", 0) * price["output"] / 1_000_000
+    return round(total, 6)

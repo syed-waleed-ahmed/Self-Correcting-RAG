@@ -6,6 +6,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Phase 6: observability and evaluation)
+
+- **Prometheus metrics** at `GET /metrics` (and `/api/v1/metrics`; operator
+  only on the demo):
+  - HTTP requests and latency by route template;
+  - pipeline stage durations, outcomes and attempts;
+  - LLM calls, latency and tokens by model and outcome;
+  - agent and tool outcomes, cache lookups and job outcomes.
+  - Cardinality is bounded: route templates only, unknown tool names collapsed
+    to `unknown`.
+  - `docker compose --profile observability` runs a local Prometheus.
+- **Cost per answer:**
+  - `/query` responses carry `usage` (provider-reported LLM calls and tokens,
+    by model) and `timings_ms` per stage, and the UI shows them;
+  - `estimated_cost_usd` appears only when `SCRAG_LLM_PRICES` is set, never
+    guessed;
+  - nested usage ledgers forward to their parent.
+- **Optional OpenTelemetry tracing** (`otel` extra,
+  `SCRAG_OTEL_EXPORTER=console|otlp`):
+  - spans for HTTP requests, pipeline stages, LLM calls (GenAI attributes),
+    agent runs and tools;
+  - off by default, at no cost.
+- **Golden set grown from 40 to 60 questions**, covering the weakest
+  documents, and re-measured: hybrid k = 5 recall 0.992, hit 1.000, MRR 0.966.
+- **`scrag eval --compare N`:** answer quality across a dense baseline,
+  hybrid, the self-correcting pipeline and the agent.
+  - One independent judge grades each answer, with keyword coverage and an
+    abstention rate alongside.
+  - Paced to the provider's tokens-per-minute limit.
+  - Includes `data/eval/hard.jsonl` (hard and unanswerable questions).
+- **ADR 0010** (observability).
+
+### Changed
+
+- **Demo `top_k` is 5 (was 3).** Measured: at k = 3 hybrid retrieval missed 2
+  of 60 questions that k = 5 retrieves, and the pipeline then answered them
+  correctly. The cost is about 40% more tokens per answer.
+- **Measured finding:** on the sample corpus, self-correction never changed an
+  outcome, at about 2.6 times the cost of single-shot hybrid answering.
+  Retrieval depth was the bottleneck (see `docs/evaluation.md`).
+
+
 ### Added (Phase 5: web UI)
 
 - Web UI pages, all on one shared shell (connection status, live budget,

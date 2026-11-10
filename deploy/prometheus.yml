@@ -1,0 +1,13 @@
+# Local Prometheus for `docker compose --profile observability up`.
+# Scrapes the API's /metrics, which is open when no operator auth is configured
+# (local development). On the public demo it is operator-only: add
+#   authorization: { credentials: <SCRAG_API_AUTH_TOKEN> }
+# to the job to scrape it there.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: scrag-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

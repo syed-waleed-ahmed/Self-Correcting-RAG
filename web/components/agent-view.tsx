@@ -241,6 +241,12 @@ function AgentResult({ result }: { result: AgentRunResult }) {
             <dd className="text-right font-mono">
               {result.plan.length} / {result.limits.max_steps ?? "?"}
             </dd>
+            {typeof result.usage.estimated_cost_usd === "number" && (
+              <>
+                <dt className="text-slate-500">Est. cost</dt>
+                <dd className="text-right font-mono">${result.usage.estimated_cost_usd.toFixed(5)}</dd>
+              </>
+            )}
             <dt className="text-slate-500">Time limit</dt>
             <dd className="text-right font-mono">{result.limits.timeout_s ?? "?"} s</dd>
           </dl>

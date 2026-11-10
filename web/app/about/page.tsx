@@ -27,10 +27,10 @@ const STAGES = [
   },
 ];
 
-// Measured 2026-11-10 on the 40-question golden set (docs/evaluation.md).
+// Measured 2026-11-10 on the 60-question golden set (docs/evaluation.md).
 const RESULTS = [
-  { k: 5, mode: "dense", recall: "0.950", hit: "0.975", mrr: "0.915", ndcg: "0.908" },
-  { k: 5, mode: "hybrid", recall: "0.988", hit: "1.000", mrr: "0.961", ndcg: "0.957" },
+  { k: 5, mode: "dense", recall: "0.967", hit: "0.983", mrr: "0.943", ndcg: "0.939" },
+  { k: 5, mode: "hybrid", recall: "0.992", hit: "1.000", mrr: "0.966", ndcg: "0.965" },
 ];
 
 export default function AboutPage() {
@@ -55,7 +55,7 @@ export default function AboutPage() {
 
       <Card title="Measured retrieval quality">
         <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
-          40 labelled questions over the 16 sample documents, at k = 5. Every number was measured (2026-11-10) and can
+          60 labelled questions over the 16 sample documents, at k = 5. Every number was measured (2026-11-10) and can
           be reproduced with <code className="font-mono text-xs">scrag eval</code>.
         </p>
         <div className="overflow-x-auto">
@@ -83,10 +83,34 @@ export default function AboutPage() {
           </table>
         </div>
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-          Hybrid search helps most on questions with exact terms (lexical MRR 0.838 → 0.914) at the same latency (about
-          4 ms). Two questions remain known misses and stay in the set.{" "}
+          Hybrid search helps most on questions with exact terms (lexical MRR 0.883 → 0.938) at the same latency (under
+          3 ms). Two hard questions stay in the set as known weak spots.{" "}
           <a href={`${REPO}/blob/main/docs/evaluation.md`} className="text-brand-600 hover:underline dark:text-brand-100">
             Methodology and full results
+          </a>
+        </p>
+      </Card>
+
+      <Card title="What the comparison showed">
+        <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-600 dark:text-slate-300">
+          <li>
+            On 8 answerable questions, a single hybrid generation, the self-correcting pipeline and the agent all
+            scored perfectly. Self-correction used about 2.6 times the tokens without changing an outcome on this clean
+            corpus.
+          </li>
+          <li>
+            Every wrong answer we measured came from a missed chunk, so retrieval depth mattered more: raising the
+            demo&apos;s top-k from 3 to 5 let hybrid search answer the two hardest questions.
+          </li>
+          <li>
+            Asked 4 questions the documents can&apos;t answer, including ones the model knows from training, the
+            system declined every time instead of hallucinating.
+          </li>
+        </ul>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Small samples (indicative), measured 2026-11-10 with one LLM judge plus keyword checks.{" "}
+          <a href={`${REPO}/blob/main/docs/evaluation.md`} className="text-brand-600 hover:underline dark:text-brand-100">
+            Full results and caveats
           </a>
         </p>
       </Card>

@@ -32,6 +32,8 @@ class GoldenItem:
     relevant_sources: tuple[str, ...]
     answer_contains: tuple[str, ...] = ()
     kind: str = "unspecified"
+    # True for questions the corpus cannot answer: the right answer is to say so.
+    expect_abstain: bool = False
 
 
 def load_golden(path: Path | str) -> list[GoldenItem]:
@@ -48,6 +50,7 @@ def load_golden(path: Path | str) -> list[GoldenItem]:
                     relevant_sources=tuple(raw["relevant_sources"]),
                     answer_contains=tuple(raw.get("answer_contains", ())),
                     kind=str(raw.get("kind", "unspecified")),
+                    expect_abstain=bool(raw.get("expect_abstain", False)),
                 )
             )
         except (KeyError, TypeError, json.JSONDecodeError) as exc:

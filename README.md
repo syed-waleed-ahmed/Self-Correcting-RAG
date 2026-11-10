@@ -93,10 +93,17 @@ without touching orchestration logic.
 
 - Multi-agent pipeline: retriever, guardrail, generator, evaluator.
 - Hybrid retrieval: BM25 + dense vectors fused with Reciprocal Rank Fusion.
-  Measured on the golden set: MRR 0.915 -> 0.961 at k=5 versus dense only
-  ([docs/evaluation.md](docs/evaluation.md)).
-- Evaluation harness: `scrag eval` reports recall@k, hit rate, MRR and nDCG on
-  a 40-question golden dataset, with optional answer-level evaluation.
+  Measured on a 60-question golden set at k=5, against dense only:
+  - recall 0.967 -> 0.992 and MRR 0.943 -> 0.966;
+  - lexical-question MRR 0.883 -> 0.938.
+
+  See [docs/evaluation.md](docs/evaluation.md).
+- Evaluation harness:
+  - `scrag eval` reports recall@k, hit rate, MRR and nDCG on a 60-question
+    golden dataset;
+  - `scrag eval --compare N` compares answers across a dense baseline, hybrid
+    search, the self-correcting pipeline and the agent, paced to provider
+    limits.
 - Formats: TXT, Markdown, HTML, CSV, JSON, and PDF/DOCX with the `docs` extra,
   with size and page limits.
 - Bounded agent workflow (`POST /agent/run`, `scrag agent`):
@@ -116,6 +123,11 @@ without touching orchestration logic.
   - conversation history and a daily demo budget that survive restarts;
   - tenant isolation tested end to end; the API still answers sample questions
     while the database is down.
+- Observability:
+  - Prometheus `/metrics` covers request and stage latency, LLM calls and
+    tokens per model, and agent, tool, cache and job outcomes;
+  - every answer reports its real token usage and per-stage timings;
+  - optional OpenTelemetry tracing (console or OTLP) is off by default.
 - Public demo mode: per-client rate limits, a global daily budget of live LLM
   queries, recorded sample answers (labelled as cached), a retrieval-only
   `/search` endpoint, and a Next.js web UI (`web/`).
@@ -246,6 +258,7 @@ unversioned paths still work for the routes that predate it.
 | Method | Path      | Auth | Description                                       |
 | ------ | --------- | :--: | ------------------------------------------------- |
 | GET    | `/health` |  no  | Liveness, index size, model + backend info        |
+| GET    | `/metrics` | operator on the demo | Prometheus metrics                  |
 | GET    | `/demo`   |  no  | Sample questions, demo limits, today's budget     |
 | POST   | `/search` | yes  | Retrieval only (no LLM): ranked chunks with scores |
 | POST   | `/query`  | yes  | Run the full self-correcting pipeline for a query |
@@ -339,6 +352,8 @@ Highlights:
 | `SCRAG_SESSION_TTL_HOURS`      | `24`                             | Sessions and their data are deleted after this |
 | `SCRAG_SESSION_MAX_DOCUMENTS`  | `5`                              | Uploads per session (`SCRAG_UPLOAD_MAX_BYTES` caps each, default 1 MB) |
 | `SCRAG_ADMIN_SUBJECTS`         | `[]`                             | JWT `sub`s with operator rights (with `SCRAG_AUTH_JWKS_URL` or `SCRAG_AUTH_JWT_SECRET`) |
+| `SCRAG_OTEL_EXPORTER`          | `none`                           | Tracing: `none`, `console` or `otlp` (needs the `otel` extra) |
+| `SCRAG_LLM_PRICES`             | `{}`                             | List prices per model (USD per million tokens) for cost estimates |
 
 ## Security
 
@@ -388,6 +403,8 @@ src/scrag/
   sparse.py            in-process BM25 index + Reciprocal Rank Fusion
   evaluation.py        golden-set retrieval/answer metrics (`scrag eval`)
   demo.py              rate limiter, daily budget, answer cache
+  observability/       Prometheus metrics + optional OpenTelemetry tracing
+  evaluation_compare.py  answer-quality comparison across configurations
   persistence/         Postgres: sessions, uploads, history, job queue,
                        persistent budget, SQL migrations (up + down)
   auth.py              bearer-JWT verification for admins

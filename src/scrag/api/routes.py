@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import StreamingResponse
 
 from .. import __version__
@@ -41,9 +41,12 @@ from ..models import (
     Scope,
     SearchRequest,
     SearchResponse,
+    UsageSummary,
 )
+from ..observability import metrics
 from ..orchestration import AgentRunResult, ToolRegistry, calculator_tool, document_search_tool
 from ..retriever import SupportsRetrieve
+from ..usage import estimate_cost
 from .deps import (
     get_container,
     operator_status,
@@ -51,6 +54,7 @@ from .deps import (
     rate_limit,
     require_auth,
     require_auth_unless_demo,
+    require_operator,
 )
 from .streaming import Emit, sse_response
 
@@ -95,7 +99,16 @@ def _chunk_view(rc: RetrievedChunk) -> ChunkView:
     )
 
 
-def _to_response(result: PipelineResult) -> QueryResponse:
+def _usage(raw: dict[str, Any] | None, prices: dict[str, dict[str, float]]) -> UsageSummary | None:
+    if raw is None:
+        return None
+    return UsageSummary(
+        **{k: v for k, v in raw.items() if k in UsageSummary.model_fields},
+        estimated_cost_usd=estimate_cost(raw.get("by_model", {}), prices),
+    )
+
+
+def _to_response(result: PipelineResult, prices: dict[str, dict[str, float]]) -> QueryResponse:
     return QueryResponse(
         query=result.query,
         answer=result.answer,
@@ -106,6 +119,8 @@ def _to_response(result: PipelineResult) -> QueryResponse:
         best_attempt=result.best_attempt,
         attempt_history=result.attempt_history,
         used_chunks=[_chunk_view(rc) for rc in result.used_chunks],
+        usage=_usage(result.usage, prices),
+        timings_ms=result.timings_ms or None,
     )
 
 
@@ -191,6 +206,19 @@ def health(request: Request) -> HealthResponse:
         demo_mode=c.settings.demo_mode,
         persistence="disabled" if c.persistence is None else c.persistence.status,
     )
+
+
+@router.get(
+    "/metrics",
+    tags=["ops"],
+    dependencies=[Depends(require_operator)],
+    response_class=Response,
+    responses={200: {"content": {"text/plain": {}}}},
+)
+def metrics_endpoint() -> Response:
+    """Prometheus metrics. Operator-only on the public demo; open otherwise."""
+    body, content_type = metrics.render()
+    return Response(content=body, media_type=content_type)
 
 
 @router.get("/demo", response_model=DemoInfo, tags=["ops"])
@@ -286,6 +314,7 @@ def _answer(c: Container, plan: _QueryPlan, emit: Emit | None = None) -> QueryRe
     response: QueryResponse | None = None
     if plan.fingerprint is not None and body.use_cache and c.answers is not None:
         hit = c.answers.get(body.query, plan.top_k, plan.fingerprint)
+        metrics.CACHE_LOOKUPS.labels("miss" if hit is None else f"hit_{hit.source}").inc()
         if hit is not None:
             response = QueryResponse(
                 **{**hit.response, "query": body.query},
@@ -311,7 +340,9 @@ def _answer(c: Container, plan: _QueryPlan, emit: Emit | None = None) -> QueryRe
             raise
         if c.budget is not None and result.attempts == 0:
             c.budget.refund()  # nothing was retrieved, so no LLM call was made
-        response = _to_response(result).model_copy(update={"scope": body.scope})
+        response = _to_response(result, c.settings.llm_prices).model_copy(
+            update={"scope": body.scope}
+        )
         if plan.fingerprint is not None and c.answers is not None:
             c.answers.put(
                 body.query,
@@ -404,6 +435,9 @@ def _run_agent(c: Container, plan: _AgentPlan, emit: Emit | None = None) -> Agen
         raise
     if c.budget is not None and result.status != "completed":
         c.budget.refund(cost)  # nothing was answered (approval pending or failure)
+    result.usage["estimated_cost_usd"] = estimate_cost(
+        result.usage.get("by_model", {}), c.settings.llm_prices
+    )
     return result
 
 

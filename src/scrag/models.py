@@ -8,7 +8,7 @@ and gives us free validation + JSON schema for the REST API.
 from __future__ import annotations
 
 import hashlib
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -89,6 +89,12 @@ class PipelineResult(BaseModel):
     )
     attempt_history: list[Attempt] = Field(default_factory=list)
     used_chunks: list[RetrievedChunk]
+    usage: dict[str, Any] | None = Field(
+        default=None, description="Provider-reported LLM usage of this run (calls, tokens)."
+    )
+    timings_ms: dict[str, float] = Field(
+        default_factory=dict, description="Milliseconds per stage, plus the total."
+    )
 
 
 # --------------------------------------------------------------------------
@@ -130,6 +136,21 @@ class ChunkView(BaseModel):
     guardrail_score: float | None = None
 
 
+class UsageSummary(BaseModel):
+    """What one run cost: provider-reported tokens, and an estimate if prices are set."""
+
+    llm_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    by_model: dict[str, dict[str, int]] = Field(default_factory=dict)
+    estimated_cost_usd: float | None = Field(
+        default=None,
+        description="At configured list prices (SCRAG_LLM_PRICES); null when not configured. "
+        "The public demo runs on a free tier.",
+    )
+
+
 class QueryResponse(BaseModel):
     query: str
     answer: str
@@ -152,6 +173,12 @@ class QueryResponse(BaseModel):
     history_saved: bool | None = Field(
         default=None,
         description="Session requests: whether the turn was saved (false: quota or outage).",
+    )
+    usage: UsageSummary | None = Field(
+        default=None, description="What the run that produced this answer cost (null: unknown)."
+    )
+    timings_ms: dict[str, float] | None = Field(
+        default=None, description="Milliseconds per pipeline stage, plus the total."
     )
 
 

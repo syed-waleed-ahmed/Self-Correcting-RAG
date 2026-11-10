@@ -58,6 +58,7 @@ export function EvaluationCard({ result }: { result: QueryResponse }) {
         Scored by an LLM judge against the retrieved context. It is a heuristic signal, not
         verification.
       </p>
+      <RunCost result={result} />
       {result.attempt_history.length > 0 && (
         <ol className="mt-4 space-y-2 border-l border-slate-200 pl-4 dark:border-slate-800">
           {result.attempt_history.map((a) => (
@@ -66,6 +67,33 @@ export function EvaluationCard({ result }: { result: QueryResponse }) {
         </ol>
       )}
     </Card>
+  );
+}
+
+const STAGES = ["retrieve", "guardrail", "generate", "evaluate"] as const;
+
+/** What producing this answer cost: LLM calls, tokens and time (for a recorded run: the original run). */
+function RunCost({ result }: { result: QueryResponse }) {
+  const usage = result.usage;
+  const timings = result.timings_ms;
+  if (!usage && !timings) return null;
+  const parts: string[] = [];
+  if (usage) {
+    parts.push(`${usage.llm_calls} LLM call${usage.llm_calls === 1 ? "" : "s"}`);
+    parts.push(`${usage.total_tokens.toLocaleString()} tokens`);
+    if (usage.estimated_cost_usd !== null) parts.push(`≈ ${usage.estimated_cost_usd.toFixed(5)}`);
+  }
+  if (timings?.total !== undefined) parts.push(`${(timings.total / 1000).toFixed(1)} s`);
+  const breakdown = timings
+    ? STAGES.filter((s) => timings[s] !== undefined)
+        .map((s) => `${s} ${Math.round(timings[s]!)} ms`)
+        .join(" · ")
+    : "";
+  return (
+    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400" title={breakdown || undefined}>
+      <span className="font-medium">{result.cached ? "Original run" : "This run"}:</span> {parts.join(" · ")}
+      {breakdown && <span className="block font-mono text-[0.7rem] text-slate-400">{breakdown}</span>}
+    </p>
   );
 }
 
