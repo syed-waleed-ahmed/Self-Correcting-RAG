@@ -1,6 +1,8 @@
 # Deployment Plan
 
-Last updated: 2026-11-10. **Nothing is deployed publicly yet.** This document
+Last updated: 2026-11-10. **Nothing is deployed publicly yet.** The
+step-by-step operator guide is in [`docs/deployment.md`](../deployment.md); this
+file keeps the plan, the smoke-test spec and the evidence log. This document
 will only claim a live deployment once one is verified, with evidence recorded
 in section 6.
 

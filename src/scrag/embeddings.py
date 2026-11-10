@@ -13,12 +13,15 @@ dimension the index was built with.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
 from .errors import EmbeddingDimensionError, EmbeddingError
 from .logging_config import get_logger
+
+if TYPE_CHECKING:
+    from .config import Settings
 
 logger = get_logger(__name__)
 
@@ -115,3 +118,82 @@ class SentenceTransformerEmbedder:
             show_progress_bar=False,
         )
         return np.asarray(vectors, dtype="float32")
+
+
+class FastEmbedEmbedder:
+    """Local embedder backed by ``fastembed`` (ONNX Runtime, no PyTorch).
+
+    Runs the same sentence-transformers models with roughly half the memory of
+    the torch backend, which is what makes a 512 MB hosting instance viable.
+    """
+
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        dim: int = 384,
+        batch_size: int = 32,
+        cache_dir: str | None = None,
+    ) -> None:
+        # fastembed names sentence-transformers models with their HF org prefix.
+        self.model_name = model_name if "/" in model_name else f"sentence-transformers/{model_name}"
+        self._dim = dim
+        self.batch_size = batch_size
+        self.cache_dir = cache_dir
+        self._model: Any = None
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def _get_model(self) -> Any:
+        if self._model is None:
+            try:
+                from fastembed import TextEmbedding
+            except ImportError as exc:  # pragma: no cover - depends on optional stack
+                raise RuntimeError(
+                    "The fastembed backend requires fastembed. Install it with:\n"
+                    '    pip install "self-correcting-rag[onnx]"'
+                ) from exc
+            logger.info("Loading embedding model %s (fastembed)", self.model_name)
+            model = TextEmbedding(self.model_name, cache_dir=self.cache_dir)
+            probe = np.asarray(next(iter(model.embed(["dimension probe"]))), dtype="float32")
+            if probe.shape[-1] != self._dim:
+                raise EmbeddingDimensionError(
+                    f"Embedding model {self.model_name!r} produces {probe.shape[-1]}-dim "
+                    f"vectors but SCRAG_EMBEDDING_DIM={self._dim}. Set "
+                    f"SCRAG_EMBEDDING_DIM={probe.shape[-1]} and re-ingest."
+                )
+            self._model = model
+        return self._model
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        if not texts:
+            return np.zeros((0, self._dim), dtype="float32")
+        model = self._get_model()
+        return np.asarray(list(model.embed(texts, batch_size=self.batch_size)), dtype="float32")
+
+
+def _fastembed_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("fastembed") is not None
+
+
+def create_embedder(settings: Settings) -> Embedder:
+    """Build the embedder selected by ``settings.embedding_backend``."""
+    backend = settings.embedding_backend
+    if backend == "auto":
+        backend = "fastembed" if _fastembed_available() else "sentence-transformers"
+    cache_dir = str(settings.embedding_cache_dir) if settings.embedding_cache_dir else None
+    if backend == "fastembed":
+        return FastEmbedEmbedder(
+            model_name=settings.embedding_model,
+            dim=settings.embedding_dim,
+            batch_size=settings.embedding_batch_size,
+            cache_dir=cache_dir,
+        )
+    return SentenceTransformerEmbedder(
+        model_name=settings.embedding_model,
+        dim=settings.embedding_dim,
+        batch_size=settings.embedding_batch_size,
+    )

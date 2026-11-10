@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-correcting-rag"
-version = "0.1.0"
+version = "0.2.0"
 description = "A production-grade, self-correcting multi-agent Retrieval-Augmented Generation pipeline with a REST API and CLI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,12 +34,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Default local embedder (sentence-transformers pulls torch — heavy).
+# Lightweight local embedder: ONNX Runtime, no torch (~half the memory). Same
+# vectors as sentence-transformers for the same model. Used by the Docker image.
+onnx = ["fastembed>=0.4"]
+# PyTorch-based local embedder (sentence-transformers pulls torch: heavy).
 local = ["sentence-transformers>=2.7", "torch>=2.0"]
+# PDF and DOCX ingestion (HTML, CSV, JSON, TXT and Markdown need no extras).
+docs = ["pypdf>=4", "python-docx>=1.1"]
 # Optional approximate/scalable vector backend.
 faiss = ["faiss-cpu>=1.7"]
-# Everything needed to run the app for real.
-all = ["sentence-transformers>=2.7", "torch>=2.0", "faiss-cpu>=1.7"]
+# Everything.
+all = [
+    "fastembed>=0.4",
+    "sentence-transformers>=2.7",
+    "torch>=2.0",
+    "faiss-cpu>=1.7",
+    "pypdf>=4",
+    "python-docx>=1.1",
+]
 # Development / CI.
 dev = [
     "pytest>=8.0",

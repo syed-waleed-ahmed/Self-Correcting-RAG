@@ -54,6 +54,16 @@ class VectorStore(ABC):
     def __len__(self) -> int:
         """Number of stored chunks."""
 
+    def versioned_snapshot(self) -> tuple[int, np.ndarray, list[Chunk]]:
+        """Return ``(revision, vectors, chunks)`` read atomically.
+
+        ``revision`` changes whenever the contents change, so derived indexes
+        (e.g. BM25) can be cached per revision. ``-1`` means "unknown": callers
+        must not cache. The default implementation cannot track changes.
+        """
+        vectors, chunks = self.snapshot()
+        return -1, vectors, chunks
+
     def refresh_if_stale(self) -> bool:
         """Reload if another process persisted a newer index. Returns True if reloaded.
 

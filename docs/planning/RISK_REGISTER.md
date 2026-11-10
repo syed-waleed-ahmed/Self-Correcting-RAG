@@ -8,16 +8,16 @@ Last reviewed: 2026-11-10.
 
 | ID | Risk | L | I | Mitigation | Status |
 | --- | --- | --- | --- | --- | --- |
-| R1 | The API (torch + sentence-transformers) doesn't fit Render Free's 512 MB, so the container is OOM-killed | H | H | D1: fastembed ONNX embedder for deployment; measure RSS under `--memory=512m` before deploying | Open |
+| R1 | The API (torch + sentence-transformers) doesn't fit Render Free's 512 MB, so the container is OOM-killed | M | H | ADR 0001: fastembed (211 MB peak vs 428 MB for torch, measured); CI container job enforces peak < 450 MB under `--memory=512m` | Mitigated (pending first live deploy) |
 | R2 | Supabase Free pauses after 7 idle days and resuming is manual, so uploads and history go down | H | M | D2: bundled sample index keeps core Q&A working; health endpoint reports DB status; documented manual resume; **no keep-alive pings** (forbidden) | Open |
-| R3 | Groq quotas (per model, per org) are exhausted by demo traffic or abuse | H | H | Demo budgets (per session, per IP, global daily); cached answers for sample questions; batched guardrail; `top_k=3`; clear quota-reached UX; fallback to a second Groq model | Open |
+| R3 | Groq quotas (per model, per org) are exhausted by demo traffic or abuse | H | H | Implemented: per-IP token bucket, global daily budget (30), recorded sample answers, TTL answer cache, batched guardrail, `top_k=3`, quota-reached UX. Still open: automatic fallback to a second Groq model | Partly mitigated |
 | R4 | Groq retires a configured model with little notice (happened 2026-08-16 and 2026-09-14) | H | H | Model IDs in config; startup `GET /models` probe that warns; fallback model list; re-check before each deploy | Mitigated for the default (Phase 1); probe Open |
 | R5 | A card on file lets Render bill bandwidth/build overage automatically ($0.15/GB beyond 5 GB) | M | M | Avoid adding a card if possible; keep API responses small; static assets on Vercel; monthly usage check (`COST_ZERO_VERIFICATION.md`) | Open |
 | R6 | Adding a card to Upstash switches it to pay-as-you-go | L | M | Redis isn't used (D5); if ever used, no card | Mitigated |
 | R7 | Free tiers change terms (e.g. HF Spaces Docker and Koyeb became paid) | M | H | Re-verify the matrix before every deploy; keep the provider-agnostic seams so a host swap is configuration, not code | Open |
 | R8 | Render's 750 h/month or 5 GB bandwidth runs out and free services are suspended until month end | L | M | One service only; static assets elsewhere; monitor usage | Open |
 | R9 | Vercel Hobby forbids commercial use | L | M | Keep the demo non-commercial (no ads, no paid work through it) | Accepted |
-| R10 | Cold start (~1 minute on Render) makes the demo look broken | H | M | Frontend shows a "waking the server" state with retry; the health check is cheap; no keep-alive | Open |
+| R10 | Cold start (~1 minute on Render) makes the demo look broken | H | M | Implemented: the UI polls `/health` and shows a "waking the server" state; the model and index are baked into the image so startup needs no download; no keep-alive | Mitigated |
 
 ## Product and quality
 

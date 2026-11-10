@@ -1,7 +1,9 @@
 """Document ingestion: load → chunk → embed → index.
 
-Reads ``.txt``/``.md`` files from a directory, splits them into overlapping
-chunks, embeds them in batches and writes them to a vector store.
+Reads supported files (text, Markdown, HTML, CSV, JSON, and PDF/DOCX with the
+``docs`` extra; see :mod:`scrag.loaders`) from a directory, splits them into
+overlapping chunks, embeds them in batches and writes them to a vector store.
+Files that can't be read, or exceed the size limits, are skipped with a warning.
 
 Modes:
     * ``reset=True``  — rebuild: the index mirrors the documents directory.
@@ -25,14 +27,15 @@ import numpy as np
 from .chunking import Chunker
 from .embeddings import Embedder, embed_checked
 from .errors import DocumentsNotFoundError, NoDocumentsError
+from .loaders import SUPPORTED_SUFFIXES, LoaderError, extract_text
 from .logging_config import get_logger
 from .models import Chunk
 from .vectorstore.base import VectorStore
 
 logger = get_logger(__name__)
 
-_SUPPORTED_SUFFIXES = {".txt", ".md"}
 DOC_HASH_KEY = "doc_hash"
+DEFAULT_MAX_DOCUMENT_BYTES = 10_000_000
 
 
 @dataclass
@@ -50,10 +53,15 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
 
 
-def load_documents(docs_dir: Path | str) -> list[tuple[str, str]]:
+def load_documents(
+    docs_dir: Path | str,
+    *,
+    max_bytes: int = DEFAULT_MAX_DOCUMENT_BYTES,
+    max_pdf_pages: int = 300,
+) -> list[tuple[str, str]]:
     """Return ``(source_name, text)`` pairs for supported files under ``docs_dir``.
 
-    Files that are not valid UTF-8 are skipped with a warning rather than
+    Unreadable or oversized files are skipped with a warning rather than
     aborting the whole ingestion.
     """
     docs_dir = Path(docs_dir)
@@ -61,13 +69,13 @@ def load_documents(docs_dir: Path | str) -> list[tuple[str, str]]:
         raise DocumentsNotFoundError(f"Documents directory not found: {docs_dir}")
     documents: list[tuple[str, str]] = []
     for path in sorted(docs_dir.rglob("*")):
-        if path.suffix.lower() not in _SUPPORTED_SUFFIXES or not path.is_file():
+        if path.suffix.lower() not in SUPPORTED_SUFFIXES or not path.is_file():
             continue
         source = path.relative_to(docs_dir).as_posix()
         try:
-            text = path.read_text(encoding="utf-8").strip()
-        except UnicodeDecodeError:
-            logger.warning("Skipping %s: not valid UTF-8 text", source)
+            text = extract_text(path, max_bytes=max_bytes, max_pdf_pages=max_pdf_pages)
+        except LoaderError as exc:
+            logger.warning("Skipping %s: %s", source, exc)
             continue
         if text:
             documents.append((source, text))
@@ -100,9 +108,11 @@ def ingest(
     docs_dir: Path | str,
     batch_size: int = 32,
     reset: bool = True,
+    max_document_bytes: int = DEFAULT_MAX_DOCUMENT_BYTES,
+    max_pdf_pages: int = 300,
 ) -> IngestStats:
     """Run the full ingestion pipeline and persist the resulting index."""
-    documents = load_documents(docs_dir)
+    documents = load_documents(docs_dir, max_bytes=max_document_bytes, max_pdf_pages=max_pdf_pages)
     if not documents:
         raise NoDocumentsError(f"No ingestable documents found in {docs_dir}")
 

@@ -22,6 +22,43 @@ class ScragError(Exception):
 
     def __init__(self, message: str | None = None) -> None:
         super().__init__(message or self.public_message)
+        self.headers: dict[str, str] = {}
+
+
+# --- Demo / quota errors (429, 403) ------------------------------------------------
+class RateLimitedError(ScragError):
+    code = "rate_limited"
+    http_status = 429
+    public_message = "Too many requests. Please wait a moment and try again."
+
+    def __init__(self, message: str | None = None, *, retry_after: int = 60) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": str(retry_after)}
+
+
+class DemoBudgetExhaustedError(ScragError):
+    code = "demo_budget_exhausted"
+    http_status = 429
+    public_message = (
+        "The demo's daily budget of live AI queries is used up. Sample questions "
+        "still work from recorded results; live queries resume after the daily reset."
+    )
+
+    def __init__(self, message: str | None = None, *, retry_after: int = 3600) -> None:
+        super().__init__(message)
+        self.headers = {"Retry-After": str(retry_after)}
+
+
+class ForbiddenError(ScragError):
+    code = "forbidden"
+    http_status = 403
+    public_message = "This operation is not available on the public demo."
+
+
+class QueryTooLongError(ScragError, ValueError):
+    code = "query_too_long"
+    http_status = 400
+    public_message = "The query is too long for the demo."
 
 
 # --- Request / state errors (4xx) ---------------------------------------------
@@ -52,7 +89,7 @@ class DocumentsNotFoundError(ScragError, FileNotFoundError):
 class NoDocumentsError(ScragError, ValueError):
     code = "no_documents"
     http_status = 409
-    public_message = "No ingestable documents (.txt, .md) were found."
+    public_message = "No ingestable documents were found in the documents directory."
 
 
 # --- Server-side configuration / data errors (5xx) ---------------------------

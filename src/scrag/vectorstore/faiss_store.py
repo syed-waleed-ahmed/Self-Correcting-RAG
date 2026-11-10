@@ -43,7 +43,8 @@ class FaissVectorStore(PersistentVectorStore):
     def __init__(self, dim: int, path: Path | str) -> None:
         super().__init__(dim, path)
         self._faiss = _import_faiss()
-        self._state: tuple[Any, tuple[Chunk, ...]] = (self._faiss.IndexFlatIP(dim), ())
+        # (index, chunks, revision): replaced as a whole, never mutated.
+        self._state: tuple[Any, tuple[Chunk, ...], int] = (self._faiss.IndexFlatIP(dim), (), 0)
 
     def __len__(self) -> int:
         return len(self._state[1])
@@ -54,31 +55,36 @@ class FaissVectorStore(PersistentVectorStore):
             return
         normalized = self._validated(vectors, chunks)
         with self._lock:
-            current_index, current_chunks = self._state
+            current_index, current_chunks, _ = self._state
             index = self._faiss.clone_index(current_index)
             index.add(normalized)
-            self._state = (index, current_chunks + tuple(chunks))
+            self._publish(index, current_chunks + tuple(chunks))
 
     def replace(self, vectors: np.ndarray, chunks: list[Chunk]) -> None:
         index = self._faiss.IndexFlatIP(self.dim)
         if chunks:
             index.add(self._validated(vectors, chunks))
         with self._lock:
-            self._state = (index, tuple(chunks))
+            self._publish(index, tuple(chunks))
 
     def clear(self) -> None:
         with self._lock:
-            self._state = (self._faiss.IndexFlatIP(self.dim), ())
+            self._publish(self._faiss.IndexFlatIP(self.dim), ())
 
     # --- reads -----------------------------------------------------------------
     def snapshot(self) -> tuple[np.ndarray, list[Chunk]]:
-        index, chunks = self._state
+        _, vectors, chunks = self.versioned_snapshot()
+        return vectors, chunks
+
+    def versioned_snapshot(self) -> tuple[int, np.ndarray, list[Chunk]]:
+        index, chunks, revision = self._state
         if index.ntotal == 0:
-            return np.zeros((0, self.dim), dtype="float32"), list(chunks)
-        return np.asarray(index.reconstruct_n(0, index.ntotal), dtype="float32"), list(chunks)
+            return revision, np.zeros((0, self.dim), dtype="float32"), list(chunks)
+        vectors = np.asarray(index.reconstruct_n(0, index.ntotal), dtype="float32")
+        return revision, vectors, list(chunks)
 
     def search(self, query_vector: np.ndarray, top_k: int) -> list[RetrievedChunk]:
-        index, chunks = self._state  # one read: a consistent snapshot
+        index, chunks, _ = self._state  # one read: a consistent snapshot
         if len(chunks) == 0 or top_k <= 0:
             return []
         query = self._normalize(query_vector)
@@ -92,7 +98,7 @@ class FaissVectorStore(PersistentVectorStore):
 
     # --- persistence hooks -------------------------------------------------------
     def _write_payload(self, directory: Path) -> int:
-        index, chunks = self._state
+        index, chunks, _ = self._state
         self._faiss.write_index(index, str(directory / "index.faiss"))
         write_chunks(directory / "chunks.jsonl", chunks)
         return len(chunks)
@@ -106,9 +112,12 @@ class FaissVectorStore(PersistentVectorStore):
         chunks = read_chunks(directory / "chunks.jsonl")
         check_count(directory, meta, int(index.ntotal), len(chunks))
         with self._lock:
-            self._state = (index, tuple(chunks))
+            self._publish(index, tuple(chunks))
 
     # --- helpers -----------------------------------------------------------------
+    def _publish(self, index: Any, chunks: tuple[Chunk, ...]) -> None:
+        self._state = (index, chunks, self._state[2] + 1)
+
     def _validated(self, vectors: np.ndarray, chunks: list[Chunk]) -> np.ndarray:
         normalized = self._normalize(vectors)
         if normalized.shape[0] != len(chunks):

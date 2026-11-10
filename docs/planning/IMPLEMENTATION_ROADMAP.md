@@ -30,8 +30,8 @@ the **owner's decision**:
 | --- | --- | --- |
 | 0 | Repository audit and planning documents | **Done** |
 | 1 | Core reliability defects | **Done** (see below) |
-| 2 | Advanced RAG foundation + minimal eval harness | Not started |
-| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | Not started |
+| 2 | Advanced RAG foundation + minimal eval harness | **Done** (pgvector moved to Phase 4, ADR 0006) |
+| 2b | Walking-skeleton deployment (Render + Vercel, bundled index) | **Built; awaiting account setup** (see below) |
 | 3 | Agent framework and tool registry | Not started |
 | 4 | Persistence, auth, sessions, durable jobs | Not started |
 | 5 | Frontend | Not started (a minimal page ships in 2b) |
@@ -75,7 +75,21 @@ Known limits accepted in Phase 1:
 - The FAISS tests are skipped locally unless `faiss-cpu` is installed; CI runs
   them in a separate job.
 
-## Phase 2: Advanced RAG foundation
+## Phase 2: Advanced RAG foundation (done 2026-11-10)
+
+Delivered:
+- golden set (40 questions) and `scrag eval`, with the baseline measured before
+  hybrid retrieval;
+- `FastEmbedEmbedder` (memory measured);
+- hybrid BM25 + RRF retrieval (measured: MRR 0.915 -> 0.961 at k=5);
+- PDF, DOCX, HTML, CSV and JSON loaders with limits;
+- batched guardrail (verified live).
+
+Collections and `PgVectorStore` moved to Phase 4 (ADR 0006). The reranker is
+deferred until it can be measured on the 0.1 CPU instance. Results are in
+`docs/evaluation.md`, decisions in `docs/decisions/`.
+
+Original scope:
 
 Scope:
 1. **Golden set.** About 30-50 question/answer/source triples over the sample
@@ -103,7 +117,23 @@ Acceptance:
 - pgvector tests are green in CI.
 - No regressions.
 
-## Phase 2b: Walking skeleton deployment
+## Phase 2b: Walking skeleton deployment (built 2026-11-10)
+
+Delivered:
+- `/api/v1`, `/search` and `/demo`;
+- demo mode (rate limit, daily budget, caps, operator-only ingest);
+- recorded sample answers;
+- slim Dockerfile with the bundled index;
+- `render.yaml`;
+- `web/` (Next.js static export);
+- `scripts/smoke.py`;
+- CI container job (512 MB / 0.1 CPU) and web build job.
+
+**Remaining:** creating the Render and Vercel projects. These need the owner's
+accounts; follow `docs/deployment.md`. After that, run the smoke test against
+the live URL and record the evidence.
+
+Original scope:
 
 Scope:
 - Render Free hosts the API image with fastembed and the bundled sample index.
@@ -192,7 +222,22 @@ Scope:
 - Real screenshots.
 - README, ADRs and a tagged release.
 
-## Open decisions for the owner
+## Decisions taken (2026-11-10)
+
+The owner asked for the work to proceed without further questions, so the
+recommended options were adopted:
+
+1. **Reordering:** a walking skeleton right after Phase 2, and the eval harness
+   inside Phase 2.
+2. **fastembed and the bundled index:** D1 and D2, now ADRs 0001 and 0002.
+3. **Groq-only LLM routing:** D4, now ADR 0004.
+4. **Render card requirement:** still unknown until the account is created.
+   `docs/deployment.md` says not to add a payment method.
+5. **Reduced agent roster** (D7) for Phase 3.
+
+The original questions follow.
+
+## Open decisions for the owner (original)
 
 1. Approve the reordering (Phase 2b and the eval harness in Phase 2)?
 2. Approve fastembed as the deployment embedder (D1) and the bundled sample index

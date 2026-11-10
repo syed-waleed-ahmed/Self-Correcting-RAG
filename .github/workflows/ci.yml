@@ -21,10 +21,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # Only the lightweight core + dev deps are needed: the test suite runs
-      # against fakes, so torch/sentence-transformers are never installed in CI.
+      # Core + dev + document parsers. The suite runs against fakes, so
+      # torch/sentence-transformers/fastembed are never installed here.
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,docs]"
 
       - name: Lint (ruff)
         run: ruff check .
@@ -55,3 +55,72 @@ jobs:
 
       - name: Test vector stores (numpy + faiss)
         run: pytest -q tests/test_vector_stores.py tests/test_numpy_store.py
+
+  # Build the deployment image and run it under the free-tier budget
+  # (512 MB RAM, 0.1 CPU), then smoke-test it and record peak memory.
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t scrag:ci .
+
+      - name: Run under free-tier limits
+        run: |
+          docker run -d --name scrag --memory=512m --memory-swap=512m --cpus=0.1 \
+            -e SCRAG_DEMO_MODE=true -p 8000:8000 scrag:ci
+
+      - name: Smoke test
+        run: python scripts/smoke.py --base-url http://localhost:8000 --wake-timeout 240
+
+      - name: Memory under load
+        run: |
+          for i in $(seq 1 15); do
+            curl -s -o /dev/null -X POST localhost:8000/api/v1/search \
+              -H 'content-type: application/json' -d "{\"query\": \"retrieval question $i\"}"
+            sleep 4  # stay inside the demo rate limit
+          done
+          peak=$(docker exec scrag cat /sys/fs/cgroup/memory.peak)
+          current=$(docker exec scrag cat /sys/fs/cgroup/memory.current)
+          oom=$(docker inspect -f '{{.State.OOMKilled}}' scrag)
+          size=$(docker image inspect scrag:ci --format '{{.Size}}')
+          {
+            echo "### Container under free-tier limits (512 MB, 0.1 CPU)"
+            echo "| metric | value |"
+            echo "| --- | --- |"
+            echo "| peak memory | $((peak / 1048576)) MB |"
+            echo "| memory after load | $((current / 1048576)) MB |"
+            echo "| OOM killed | $oom |"
+            echo "| image size | $((size / 1048576)) MB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$oom" = "false"
+          test "$peak" -lt $((450 * 1048576))
+
+      - name: Container logs
+        if: always()
+        run: docker logs scrag 2>&1 | tail -50
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # The build generates next-env.d.ts, which the standalone type check needs.
+      - name: Build (static export)
+        run: npm run build
+
+      - name: Type check
+        run: npm run lint

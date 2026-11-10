@@ -145,4 +145,4 @@ class SelfCorrectingRAGPipeline:
 
     @staticmethod
     def _sort_by_relevance(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
-        return sorted(chunks, key=lambda rc: rc.score, reverse=True)
+        return sorted(chunks, key=lambda rc: rc.rank_key, reverse=True)

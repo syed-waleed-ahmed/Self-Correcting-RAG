@@ -16,13 +16,14 @@ from dataclasses import dataclass, field
 from .agents import EvaluatorAgent, GeneratorAgent, GuardrailAgent
 from .chunking import Chunker
 from .config import Settings
-from .embeddings import Embedder, SentenceTransformerEmbedder
+from .demo import AnswerCache, DailyBudget, RateLimiter, corpus_fingerprint
+from .embeddings import Embedder, create_embedder
 from .errors import IngestInProgressError
 from .ingest import IngestStats, ingest
 from .llm.client import ChatClient, OpenAICompatibleClient
 from .logging_config import get_logger
 from .pipeline import SelfCorrectingRAGPipeline
-from .retriever import Retriever
+from .retriever import HybridRetriever, Retriever
 from .vectorstore import create_vector_store
 from .vectorstore.base import VectorStore
 
@@ -37,8 +38,22 @@ class Container:
     chunker: Chunker
     retriever: Retriever
     pipeline: SelfCorrectingRAGPipeline | None  # None when no LLM key configured
+    answers: AnswerCache | None = None
+    rate_limiter: RateLimiter | None = None  # demo mode only
+    budget: DailyBudget | None = None  # demo mode only
     # One ingestion at a time per process; concurrent requests get a 409.
     ingest_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _fingerprint: tuple[int, str] | None = field(default=None, repr=False)
+
+    def corpus_fingerprint(self) -> str:
+        """Fingerprint of the indexed corpus, cached per store revision."""
+        revision, _, chunks = self.store.versioned_snapshot()
+        cached = self._fingerprint
+        if cached is not None and revision != -1 and cached[0] == revision:
+            return cached[1]
+        value = corpus_fingerprint(chunks)
+        self._fingerprint = (revision, value)
+        return value
 
     def load_index(self) -> bool:
         """Load a persisted index into the store if one exists."""
@@ -75,9 +90,26 @@ class Container:
                 docs_dir=self.settings.docs_dir,
                 batch_size=self.settings.embedding_batch_size,
                 reset=reset,
+                max_document_bytes=self.settings.max_document_bytes,
+                max_pdf_pages=self.settings.max_pdf_pages,
             )
         finally:
             self.ingest_lock.release()
+
+
+def build_retriever(
+    settings: Settings, embedder: Embedder, store: VectorStore, mode: str | None = None
+) -> Retriever:
+    """Build the retriever for ``mode`` (defaults to ``settings.retrieval_mode``)."""
+    if (mode or settings.retrieval_mode) == "hybrid":
+        return HybridRetriever(
+            embedder,
+            store,
+            default_top_k=settings.top_k,
+            candidate_pool=settings.hybrid_candidate_pool,
+            rrf_k=settings.rrf_k,
+        )
+    return Retriever(embedder, store, default_top_k=settings.top_k)
 
 
 def build_container(
@@ -92,14 +124,10 @@ def build_container(
     The optional overrides exist so tests (and alternative deployments) can inject
     fakes without monkeypatching.
     """
-    embedder = embedder or SentenceTransformerEmbedder(
-        model_name=settings.embedding_model,
-        dim=settings.embedding_dim,
-        batch_size=settings.embedding_batch_size,
-    )
+    embedder = embedder or create_embedder(settings)
     store = store or create_vector_store(settings)
     chunker = Chunker(chunk_size=settings.chunk_size, overlap=settings.chunk_overlap)
-    retriever = Retriever(embedder, store, default_top_k=settings.top_k)
+    retriever = build_retriever(settings, embedder, store)
 
     pipeline: SelfCorrectingRAGPipeline | None = None
     client = chat_client
@@ -119,6 +147,7 @@ def build_container(
                 threshold=settings.guardrail_threshold,
                 max_workers=settings.guardrail_max_workers,
                 max_tokens=settings.guardrail_max_tokens,
+                mode=settings.guardrail_mode,
             ),
             generator=GeneratorAgent(client, settings.generator_model),
             evaluator=EvaluatorAgent(client, settings.evaluator_model),
@@ -129,6 +158,16 @@ def build_container(
     else:
         logger.warning("No LLM key configured — /query will be unavailable.")
 
+    answers = AnswerCache(
+        ttl_seconds=settings.answer_cache_ttl_seconds, max_entries=settings.answer_cache_size
+    )
+    try:
+        loaded = answers.load_samples(settings.samples_path)
+        if loaded:
+            logger.info("Loaded %d recorded sample answers", loaded)
+    except (OSError, ValueError, KeyError) as exc:
+        logger.warning("Could not load sample answers from %s: %s", settings.samples_path, exc)
+
     return Container(
         settings=settings,
         embedder=embedder,
@@ -136,4 +175,11 @@ def build_container(
         chunker=chunker,
         retriever=retriever,
         pipeline=pipeline,
+        answers=answers,
+        rate_limiter=(
+            RateLimiter(settings.demo_rate_limit_per_minute, settings.demo_rate_limit_burst)
+            if settings.demo_mode
+            else None
+        ),
+        budget=DailyBudget(settings.demo_daily_query_budget) if settings.demo_mode else None,
     )

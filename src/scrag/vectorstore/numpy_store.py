@@ -24,7 +24,8 @@ from ..errors import IndexIncompatibleError
 from ..models import Chunk, RetrievedChunk
 from ._persistence import PersistentVectorStore, check_count, read_chunks, write_chunks
 
-_State = tuple[np.ndarray, tuple[Chunk, ...]]
+# (vectors, chunks, revision): replaced as a whole, never mutated.
+_State = tuple[np.ndarray, tuple[Chunk, ...], int]
 
 
 class NumpyVectorStore(PersistentVectorStore):
@@ -33,7 +34,7 @@ class NumpyVectorStore(PersistentVectorStore):
 
     def __init__(self, dim: int, path: Path | str) -> None:
         super().__init__(dim, path)
-        self._state: _State = (self._empty(), ())
+        self._state: _State = (self._empty(), (), 0)
 
     def __len__(self) -> int:
         return len(self._state[1])
@@ -44,7 +45,7 @@ class NumpyVectorStore(PersistentVectorStore):
             return
         normalized = self._validated(vectors, chunks)
         with self._lock:
-            current_vectors, current_chunks = self._state
+            current_vectors, current_chunks, _ = self._state
             merged = (
                 normalized
                 if current_vectors.shape[0] == 0
@@ -63,11 +64,15 @@ class NumpyVectorStore(PersistentVectorStore):
 
     # --- reads -----------------------------------------------------------------
     def snapshot(self) -> tuple[np.ndarray, list[Chunk]]:
-        vectors, chunks = self._state
+        vectors, chunks, _ = self._state
         return vectors, list(chunks)
 
+    def versioned_snapshot(self) -> tuple[int, np.ndarray, list[Chunk]]:
+        vectors, chunks, revision = self._state
+        return revision, vectors, list(chunks)
+
     def search(self, query_vector: np.ndarray, top_k: int) -> list[RetrievedChunk]:
-        vectors, chunks = self._state  # one read: a consistent snapshot
+        vectors, chunks, _ = self._state  # one read: a consistent snapshot
         if len(chunks) == 0 or top_k <= 0:
             return []
         query = self._normalize(query_vector)[0]
@@ -80,7 +85,7 @@ class NumpyVectorStore(PersistentVectorStore):
 
     # --- persistence hooks -------------------------------------------------------
     def _write_payload(self, directory: Path) -> int:
-        vectors, chunks = self._state
+        vectors, chunks, _ = self._state
         np.save(directory / "vectors.npy", vectors)
         write_chunks(directory / "chunks.jsonl", chunks)
         return len(chunks)
@@ -113,4 +118,4 @@ class NumpyVectorStore(PersistentVectorStore):
 
     def _publish(self, vectors: np.ndarray, chunks: tuple[Chunk, ...]) -> None:
         vectors.setflags(write=False)  # shared with concurrent readers: never mutate
-        self._state = (vectors, chunks)
+        self._state = (vectors, chunks, self._state[2] + 1)

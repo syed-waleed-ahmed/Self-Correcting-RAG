@@ -2,14 +2,18 @@
 
 A production-grade, multi-agent Retrieval-Augmented Generation pipeline that
 retrieves context, guardrails it for relevance, generates a grounded answer, and
-then evaluates and self-corrects its own output - exposed as both a REST API and
-a CLI.
+then evaluates and self-corrects its own output - exposed as a REST API, a CLI
+and a web UI.
+
+**Live demo:** not deployed yet. Everything needed is in the repository: see
+[docs/deployment.md](docs/deployment.md) for the free-tier deployment (Render +
+Vercel, about 10 minutes).
 
 [![CI](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230)](https://github.com/astral-sh/ruff)
-![Tests](https://img.shields.io/badge/tests-112-brightgreen)
+![Tests](https://img.shields.io/badge/tests-161-brightgreen)
 
 ---
 
@@ -47,13 +51,13 @@ repair its own mistakes:
      |
      v
   +---------------------+
-  |      Retriever      |   local sentence-transformer embeddings
-  |   (vector store)    |   -> top-k chunks (cosine)
+  |      Retriever      |   hybrid: BM25 keywords + local embeddings,
+  |   (vector store)    |   fused with Reciprocal Rank Fusion -> top-k
   +----------+----------+
              |
              v
   +---------------------+
-  |      Guardrail      |   LLM relevance score per chunk (parallel)
+  |      Guardrail      |   LLM relevance score per chunk (one batched call)
   |        agent        |   -> keep >= threshold (fallback: raw retrieval)
   +----------+----------+
              |
@@ -74,6 +78,16 @@ without touching orchestration logic.
 ## Features
 
 - Multi-agent pipeline: retriever, guardrail, generator, evaluator.
+- Hybrid retrieval: BM25 + dense vectors fused with Reciprocal Rank Fusion.
+  Measured on the golden set: MRR 0.915 -> 0.961 at k=5 versus dense only
+  ([docs/evaluation.md](docs/evaluation.md)).
+- Evaluation harness: `scrag eval` reports recall@k, hit rate, MRR and nDCG on
+  a 40-question golden dataset, with optional answer-level evaluation.
+- Formats: TXT, Markdown, HTML, CSV, JSON, and PDF/DOCX with the `docs` extra,
+  with size and page limits.
+- Public demo mode: per-client rate limits, a global daily budget of live LLM
+  queries, recorded sample answers (labelled as cached), a retrieval-only
+  `/search` endpoint, and a Next.js web UI (`web/`).
 - Real self-correction: a bounded generate/evaluate loop that feeds the
   evaluator's critique back to the generator and never regresses to a worse
   answer than one it already produced. Every attempt is returned for inspection.
@@ -91,7 +105,7 @@ without touching orchestration logic.
 - Typed configuration (pydantic-settings), structured logging (optional JSON)
   with per-request IDs, robust output parsing (decimals, percentages,
   fractions), and a sanitized error contract that never leaks internals.
-- Fully tested: 112 tests run with fakes (no network, no torch) and in CI across
+- Fully tested: 161 tests run with fakes (no network, no torch) and in CI across
   Python 3.10-3.12, plus lint, format and type checks. Dockerfile and
   docker-compose included.
 
@@ -104,15 +118,16 @@ cd Self-Correcting-RAG
 python -m venv .venv
 source .venv/bin/activate            # Windows (PowerShell): .venv\Scripts\Activate.ps1
 
-# 2. Install with the local embedding stack (sentence-transformers + torch)
-pip install -e ".[local]"            # add ,dev for tests + lint: ".[local,dev]"
+# 2. Install with the lightweight ONNX embedder (no torch) and PDF/DOCX support
+pip install -e ".[onnx,docs]"        # add ,dev for tests + lint: ".[onnx,docs,dev]"
 
 # 3. Configure your key
 cp .env.example .env                 # Windows: copy .env.example .env
 #     then edit .env and set GROQ_API_KEY
 ```
 
-Optional extras: `.[faiss]` (FAISS backend), `.[dev]` (tests + lint), `.[all]`.
+Optional extras: `.[local]` (torch-based embedder; same vectors, about twice the
+memory), `.[faiss]` (FAISS backend), `.[dev]` (tests + lint), `.[all]`.
 VS Code users get a pre-wired interpreter/test config in `.vscode/settings.json`.
 
 > Get a free Groq API key at https://console.groq.com. Any OpenAI-compatible
@@ -125,6 +140,7 @@ VS Code users get a pre-wired interpreter/test config in `.vscode/settings.json`
 ```bash
 scrag ingest                                   # build the index from data/docs
 scrag query "What triggers self-correction?"   # ask a question
+scrag eval --k 5                               # retrieval metrics: dense vs hybrid
 scrag info                                     # show config + index status
 ```
 
@@ -185,9 +201,16 @@ Auth is enforced only when `SCRAG_API_AUTH_TOKEN` is set (see [Security](#securi
 
 | Method | Path      | Auth | Description                                       |
 | ------ | --------- | :--: | ------------------------------------------------- |
+All routes are served under `/api/v1`. The original unversioned paths still
+work.
+
+| Method | Path      | Auth | Description                                       |
+| ------ | --------- | :--: | ------------------------------------------------- |
 | GET    | `/health` |  no  | Liveness, index size, model + backend info        |
-| POST   | `/ingest` | yes  | (Re)build the index from the configured docs dir  |
+| GET    | `/demo`   |  no  | Sample questions, demo limits, today's budget     |
+| POST   | `/search` | yes  | Retrieval only (no LLM): ranked chunks with scores |
 | POST   | `/query`  | yes  | Run the full self-correcting pipeline for a query |
+| POST   | `/ingest` | yes  | (Re)build the index from the configured docs dir  |
 | GET    | `/docs`   |  no  | Interactive OpenAPI (Swagger) UI                  |
 
 `POST /ingest` takes `{"reset": true}` (default) to rebuild the index from the
@@ -232,6 +255,11 @@ Highlights:
 | `SCRAG_GENERATOR_MODEL`        | `qwen/qwen3.8-27b`               | Generation model (also `SCRAG_EVALUATOR_MODEL`, `SCRAG_GUARDRAIL_MODEL`) |
 | `SCRAG_VECTOR_BACKEND`         | `numpy`                          | `numpy` or `faiss`                      |
 | `SCRAG_TOP_K`                  | `5`                              | Chunks retrieved per query              |
+| `SCRAG_RETRIEVAL_MODE`         | `hybrid`                         | `hybrid` (BM25 + dense, RRF) or `dense` |
+| `SCRAG_EMBEDDING_BACKEND`      | `auto`                           | `fastembed`, `sentence-transformers` or `auto` |
+| `SCRAG_GUARDRAIL_MODE`         | `batch`                          | `batch` (one call) or `per_chunk`       |
+| `SCRAG_DEMO_MODE`              | `false`                          | Rate limits, daily budget, query caps, operator-only ingest |
+| `SCRAG_DEMO_DAILY_QUERY_BUDGET`| `30`                             | Live pipeline runs per UTC day (demo)   |
 | `SCRAG_GUARDRAIL_THRESHOLD`    | `0.3`                            | Min relevance to keep a chunk           |
 | `SCRAG_GUARDRAIL_MAX_TOKENS`   | `8`                              | Guardrail reply budget (use 256 for reasoning models such as `openai/gpt-oss-20b`) |
 | `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer |
@@ -258,19 +286,29 @@ src/scrag/
   config.py            typed settings (pydantic-settings)
   models.py            pydantic domain + API schemas
   chunking.py          boundary-aware overlapping chunker
+  loaders.py           text extraction: txt/md/html/csv/json/pdf/docx
   embeddings.py        Embedder protocol + lazy sentence-transformers backend
   vectorstore/         VectorStore ABC, numpy (default), faiss (optional),
                        atomic generation-based persistence
   llm/                 provider-agnostic OpenAI-compatible ChatClient
   agents/              guardrail, generator, evaluator (+ robust parsing)
   errors.py            domain errors -> HTTP status + client-safe message
-  retriever.py         query -> embed -> search
+  retriever.py         dense and hybrid (BM25 + dense, RRF) retrievers
+  sparse.py            in-process BM25 index + Reciprocal Rank Fusion
+  evaluation.py        golden-set retrieval/answer metrics (`scrag eval`)
+  demo.py              rate limiter, daily budget, answer cache
   ingest.py            load -> chunk -> embed -> index
   pipeline.py          self-correcting orchestrator (keeps best attempt)
   container.py         composition root / dependency wiring
   api/                 FastAPI app factory + routes
   cli.py               Typer CLI (ingest / query / serve / info)
 scripts/verify.py      single command for every CI quality gate
+scripts/smoke.py       smoke test for a running API (local or deployed)
+scripts/record_samples.py  record real runs for the demo's sample questions
+web/                   Next.js + Tailwind demo UI (static export, Vercel)
+data/eval/             golden dataset for `scrag eval`
+data/demo/             recorded sample answers served by the demo
+docs/                  evaluation, deployment, decisions (ADRs), planning
 tests/                 pytest suite (fakes; no network or torch)
 ```
 
@@ -282,7 +320,7 @@ python scripts/verify.py        # lint + format check + mypy + tests (what CI ru
 python scripts/verify.py --fix  # apply ruff fixes/formatting first
 ```
 
-The 112 tests run in a few seconds with no network or API key. The 9 FAISS
+The 161 tests run in a few seconds with no network or API key. The 9 FAISS
 tests are skipped unless `faiss-cpu` is installed; CI runs them in a separate
 job.
 

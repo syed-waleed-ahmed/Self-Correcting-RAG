@@ -39,6 +39,7 @@ _REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
 
 _HTTP_ERROR_CODES = {
     400: "bad_request",
+    422: "validation_error",
     401: "unauthorized",
     403: "forbidden",
     404: "not_found",
@@ -152,7 +153,9 @@ def create_app(
         else:
             logger.info("%s on %s: %s", exc.code, request.url.path, exc)
         return JSONResponse(
-            status_code=exc.http_status, content=error_body(exc.code, exc.public_message)
+            status_code=exc.http_status,
+            content=error_body(exc.code, exc.public_message),
+            headers=exc.headers or None,
         )
 
     @app.exception_handler(StarletteHTTPException)
@@ -164,5 +167,8 @@ def create_app(
             headers=getattr(exc, "headers", None),
         )
 
-    app.include_router(router)
+    # Versioned API, plus the original unversioned paths for existing clients
+    # (hidden from the OpenAPI schema to avoid listing every route twice).
+    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, include_in_schema=False)
     return app

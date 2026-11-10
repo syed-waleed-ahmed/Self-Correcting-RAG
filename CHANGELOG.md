@@ -6,7 +6,75 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Phase 1 (core reliability) of the roadmap in `docs/planning/`.
+## [0.2.0] - 2026-11-10
+
+Phase 2 (retrieval and evaluation) and Phase 2b (deployable demo) build on
+Phase 1 (core reliability). The roadmap is in `docs/planning/`.
+
+### Added (Phase 2 / 2b)
+
+- **Hybrid retrieval** is the new default (`SCRAG_RETRIEVAL_MODE`):
+  - in-process BM25 (k1 = 1.5, b = 0.75) plus dense search, fused with
+    Reciprocal Rank Fusion (k = 60);
+  - chunks report `fusion_score` and `keyword_score` alongside the cosine
+    `score`;
+  - measured on the golden set: MRR 0.915 -> 0.961 and recall@5
+    0.950 -> 0.988 (`docs/evaluation.md`).
+- **Evaluation harness.** `scrag eval` reports recall@k, hit rate, MRR and
+  nDCG, broken down by question type, with optional answer-level evaluation. It
+  uses a 40-question golden set (`data/eval/golden.jsonl`) over a sample corpus
+  expanded to 16 documents.
+- **fastembed (ONNX) embedder.** `SCRAG_EMBEDDING_BACKEND`, `auto` by default.
+  It produces the same vectors as sentence-transformers with about half the
+  peak memory (211 vs 428 MB measured).
+- **Document formats.** HTML, CSV and JSON; PDF and DOCX with the new `docs`
+  extra. Files are subject to size and page limits, and unreadable files are
+  skipped.
+- **Batched guardrail** (`SCRAG_GUARDRAIL_MODE=batch`, the default). Chunks are
+  scored in one call instead of one per chunk. It falls back to per-chunk calls
+  if the reply is unusable, and makes no further calls if the provider is down.
+- **Versioned API** under `/api/v1`; the unversioned paths still work.
+- **New endpoints:**
+  - `POST /search` runs retrieval only, without an LLM;
+  - `GET /demo` returns sample questions, limits and the remaining budget.
+- **Demo mode** (`SCRAG_DEMO_MODE`):
+  - per-client token-bucket rate limit (`429 rate_limited`, `Retry-After`);
+  - global daily budget of live pipeline runs (`429 demo_budget_exhausted`),
+    refunded when a run fails;
+  - query-length and `top_k` caps;
+  - `/ingest` needs the operator token.
+- **Answer cache.** Recorded sample answers (`data/demo/samples.json`) and a TTL
+  cache for recent live answers. Cached responses are always labelled
+  (`cached`, `cached_at`, `cache_source`), and samples are only served while
+  the corpus fingerprint matches.
+- **`web/`:** a Next.js + Tailwind demo UI as a static export for Vercel. It
+  shows sample questions, live vs recorded runs, the attempt timeline,
+  per-chunk scores, retrieval-only mode, the remaining budget and a cold-start
+  state.
+- **Deployment:**
+  - the slim Dockerfile has no torch and bakes in the embedding model and
+    sample index;
+  - `render.yaml` is a Render Blueprint (Free plan);
+  - `scripts/smoke.py` and `scripts/record_samples.py`;
+  - `docs/deployment.md`;
+  - ADRs in `docs/decisions/`.
+- **CI:**
+  - the container job runs the image under 512 MB / 0.1 CPU, smoke-tests it and
+    records peak memory;
+  - a web job builds and type-checks the UI.
+
+### Changed (Phase 2 / 2b)
+
+- The Docker image uses fastembed instead of torch. Vectors are identical, so
+  existing indexes stay valid.
+- The pipeline keeps retrieval order (fused rank in hybrid mode) for
+  `used_chunks`.
+- `VectorStore` gained `versioned_snapshot()`, which has a default
+  implementation.
+- Loaders normalize line endings, so documents hash identically on Windows and
+  Linux.
+
+Phase 1 (core reliability):
 
 ### Changed (breaking)
 
