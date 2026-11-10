@@ -341,6 +341,16 @@ Highlights:
 - Optional JWT admin auth (e.g. Supabase Auth): algorithms come from the
   configuration, never from the token, and `exp`, `sub` and `aud` are required.
 - The container image runs as a non-root user.
+- The web UI is a static export with no secrets. The Render site sends a
+  Content-Security-Policy that allows network calls only to the API, plus
+  `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy`.
+- Repository protections:
+  - secret scanning with push protection, so a commit containing a credential
+    is rejected;
+  - CodeQL code scanning;
+  - Dependabot alerts and security updates;
+  - a CI dependency audit (`pip-audit`, `npm audit`);
+  - `main` only changes through pull requests with passing CI.
 
 ## Project structure
 
