@@ -93,7 +93,7 @@ jobs:
             echo "| memory after load | $((current / 1048576)) MB |"
             echo "| OOM killed | $oom |"
             echo "| image size | $((size / 1048576)) MB |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           test "$oom" = "false"
           test "$peak" -lt $((450 * 1048576))
 
