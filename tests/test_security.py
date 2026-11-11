@@ -269,3 +269,19 @@ def test_demo_charges_live_runs_to_each_clients_share(settings, sample_chunks):
     assert container.budget.status()["remaining"] == 8
     assert demo["budget"]["client_remaining"] == 0
     assert demo["limits"]["client_daily_runs"] == 1
+
+
+def test_client_address_on_render_behind_cloudflare():
+    # A real header set from a Render service (arcjet/arcjet-js#3899): Cloudflare
+    # appends the client, Render appends Cloudflare and then its internal proxy.
+    scope = {
+        "headers": [
+            (b"x-forwarded-for", b"81.97.145.24, 172.71.195.123, 10.226.90.65"),
+            (b"cf-connecting-ip", b"81.97.145.24"),
+        ],
+        "client": ("10.226.0.1", 1),
+    }
+    # The last hop is Render's internal proxy, shared by every visitor...
+    assert client_address(scope, "x-forwarded-for", 1) == "10.226.90.65"
+    # ...while Cloudflare's header (what render.yaml uses) is the visitor.
+    assert client_address(scope, "cf-connecting-ip", 1) == "81.97.145.24"

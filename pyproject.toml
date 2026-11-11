@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-correcting-rag"
-version = "0.3.0"
+version = "0.4.0"
 description = "A production-grade, self-correcting multi-agent Retrieval-Augmented Generation pipeline with a REST API and CLI."
 readme = "README.md"
 requires-python = ">=3.10"

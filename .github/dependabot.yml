@@ -26,11 +26,17 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
-  # The deployment image's base (python:3.12-slim): picks up security rebuilds.
+  # The deployment image's base (python:3.12-slim). The floating tag already
+  # picks up security rebuilds whenever the image is built. A new Python minor
+  # is a deliberate upgrade: 3.15 was first proposed before the image's
+  # dependencies had wheels for it (pip: ResolutionImpossible, PR #17).
   - package-ecosystem: docker
     directory: "/"
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: "/"

@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
 ### Added (Phase 7: security hardening, quotas, load tests)
 
 - **Threat model** (`docs/threat-model.md`): STRIDE per trust boundary, with
@@ -46,6 +48,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   base image.
 
 ### Fixed (Phase 7)
+
+- **On the Render demo, every visitor shared the same rate-limit buckets.**
+  Render sits behind Cloudflare, so the last `X-Forwarded-For` hop (which the
+  demo used) is one of Render's internal proxies, not the visitor. A live probe
+  allowed 6 rapid searches instead of the burst of 3: two internal proxies were
+  taking turns. One busy visitor could exhaust the per-client limits, and the
+  per-visitor daily share, for everyone. `render.yaml` now keys on
+  `CF-Connecting-IP`, which Cloudflare sets and clients can't override.
 
 - **Parser crashes returned 500s instead of 422s.** Deeply nested JSON and CSV
   fields over 128 KiB now fail cleanly.
@@ -448,7 +458,8 @@ deployable package with a REST API and CLI over a shared core.
 - Removed an f-string backslash that raised `SyntaxError` on Python < 3.12; the
   package now runs on Python 3.10+.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.4.0
 [0.3.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.3.0
 
 Versions before 0.3.0 were not tagged.

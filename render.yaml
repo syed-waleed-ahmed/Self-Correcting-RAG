@@ -29,9 +29,13 @@ services:
         value: "true"
       - key: SCRAG_LOG_JSON
         value: "true"
-      # Render's proxy appends the client address to X-Forwarded-For.
+      # The visitor's address, for rate limits and quotas. Render sits behind
+      # Cloudflare, so X-Forwarded-For arrives as "client, cloudflare, render
+      # internal proxy": its last hop is one of a few internal proxies that
+      # every visitor shares. Cloudflare sets CF-Connecting-IP to the connecting
+      # client and overwrites any value a client sends.
       - key: SCRAG_FORWARDED_IP_HEADER
-        value: x-forwarded-for
+        value: cf-connecting-ip
       - key: SCRAG_FORWARDED_IP_HOPS
         value: "1"
       # Optional Postgres+pgvector URL (free tier, see docs/deployment.md) for

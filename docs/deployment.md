@@ -135,10 +135,17 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
   failing with `llm_error`, check https://console.groq.com/docs/models and set
   `SCRAG_GENERATOR_MODEL`, `SCRAG_EVALUATOR_MODEL` and `SCRAG_GUARDRAIL_MODEL`
   on the Render service.
-- **Client IP.** Rate limiting uses the address Render's proxy appends to
-  `X-Forwarded-For` (`SCRAG_FORWARDED_IP_HOPS=1`). If every visitor seems to
-  share one limit, the hop count is wrong for Render's current proxy chain:
-  check the API logs.
+- **Client IP.** Rate limits and quotas key on the visitor's address. Render
+  sits behind Cloudflare, so the address comes from `CF-Connecting-IP`
+  (`SCRAG_FORWARDED_IP_HEADER=cf-connecting-ip`). Cloudflare sets it to the
+  connecting client and overwrites any value a client sends.
+  - `X-Forwarded-For` doesn't work here. It arrives as `client, cloudflare,
+    render-internal-proxy`, its first entry is whatever the client sent, and
+    its last is one of a few internal proxies that every visitor shares.
+  - **How to check it:** after a deploy, send about 30 rapid `/search`
+    requests. A correct setup allows the burst of 3. Until 2026-11-11 the demo
+    keyed on the last hop and allowed 6, because two internal proxies were
+    taking turns.
 
 ## Updating the sample answers
 
