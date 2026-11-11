@@ -6,20 +6,42 @@ handles connection pooling and retries with exponential backoff (including on
 HTTP 429); we configure those and wrap provider errors in :class:`LLMError` (or
 :class:`LLMRateLimitError` for quota/rate limits) so callers don't depend on the
 SDK's exception types.
+
+Optional ``fallback_models``: when a model is rate limited or no longer served,
+the same call is retried once on each fallback in order. Free-tier quotas are
+per model, so a fallback also adds headroom; providers retire free models with
+little notice (Groq did twice in 2026).
 """
 
 from __future__ import annotations
 
 import re
 import time
+from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
-from ..errors import LLMError, LLMRateLimitError
+from ..errors import LLMError, LLMModelUnavailableError, LLMRateLimitError
 from ..logging_config import get_logger
 from ..observability import metrics, set_attributes, span
 from ..usage import current_ledger
 
-__all__ = ["ChatClient", "LLMError", "LLMRateLimitError", "OpenAICompatibleClient"]
+__all__ = [
+    "ChatClient",
+    "LLMError",
+    "LLMModelUnavailableError",
+    "LLMRateLimitError",
+    "OpenAICompatibleClient",
+]
+
+# Provider error codes that mean "this model can't be used", not "this request is bad".
+_MODEL_GONE_CODES = {"model_not_found", "model_decommissioned", "model_not_active"}
+
+
+def _model_unavailable(exc: Exception) -> bool:
+    status = getattr(exc, "status_code", None)
+    code = getattr(exc, "code", None)
+    return status == 404 or (status == 400 and code in _MODEL_GONE_CODES)
+
 
 logger = get_logger(__name__)
 
@@ -63,6 +85,7 @@ class OpenAICompatibleClient:
         base_url: str = "https://api.groq.com/openai/v1",
         timeout: float = 30.0,
         max_retries: int = 3,
+        fallback_models: Sequence[str] = (),
     ) -> None:
         if not api_key:
             raise LLMError("No LLM API key configured. Set GROQ_API_KEY (or SCRAG_LLM_API_KEY).")
@@ -74,6 +97,7 @@ class OpenAICompatibleClient:
             timeout=timeout,
             max_retries=max_retries,
         )
+        self.fallback_models = [m for m in fallback_models if m]
 
     def complete(
         self,
@@ -84,6 +108,32 @@ class OpenAICompatibleClient:
         temperature: float = 0.2,
         max_tokens: int | None = None,
         json_mode: bool = False,
+    ) -> str:
+        """Return the assistant message, falling back to other models if this one is
+        rate limited or no longer served (other errors are raised at once)."""
+        candidates = [model, *(m for m in self.fallback_models if m != model)]
+        for i, candidate in enumerate(candidates):
+            try:
+                return self._complete_once(
+                    candidate, system, user, temperature, max_tokens, json_mode
+                )
+            except (LLMRateLimitError, LLMModelUnavailableError) as exc:
+                if i + 1 == len(candidates):
+                    raise
+                reason = "rate limited" if isinstance(exc, LLMRateLimitError) else "unavailable"
+                logger.warning(
+                    "LLM model %s %s; falling back to %s", candidate, reason, candidates[i + 1]
+                )
+        raise AssertionError("unreachable: the last candidate either returns or raises")
+
+    def _complete_once(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        temperature: float,
+        max_tokens: int | None,
+        json_mode: bool,
     ) -> str:
         kwargs: dict[str, Any] = {
             "model": model,
@@ -116,6 +166,8 @@ class OpenAICompatibleClient:
                 logger.error("LLM request failed for model %s: %s", model, exc)
                 if rate_limited:
                     raise LLMRateLimitError(f"LLM rate limited: {exc}") from exc
+                if _model_unavailable(exc):
+                    raise LLMModelUnavailableError(f"LLM model unavailable: {exc}") from exc
                 raise LLMError(f"LLM request failed: {exc}") from exc
 
             metrics.LLM_CALLS.labels(model, "ok").inc()

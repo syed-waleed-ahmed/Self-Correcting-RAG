@@ -129,6 +129,21 @@ class DailyBudget:
         return max(1, int(delta.total_seconds()))
 
 
+class ClientShare(Protocol):
+    """Each client's daily share of live runs (in-process, or persisted in Postgres)."""
+
+    limit: int
+
+    def consume(self, key: str, units: int = 1) -> None:
+        """Charge ``units`` to ``key``; raises ClientQuotaExceededError when spent."""
+
+    def refund(self, key: str, units: int = 1) -> None:
+        """Give units back (the run produced no answer)."""
+
+    def remaining(self, key: str) -> int:
+        """How many units ``key`` has left today."""
+
+
 class ClientQuota:
     """At most ``limit`` live runs per client per UTC day.
 

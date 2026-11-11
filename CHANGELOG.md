@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Fallback models** (`SCRAG_LLM_FALLBACK_MODELS`). When a model is rate
+  limited or no longer served (404 or `model_decommissioned`), the same call
+  is retried on each fallback in order; other errors still fail at once. The
+  demo falls back from `qwen/qwen3.8-27b` to `openai/gpt-oss-120b`. Groq's free
+  quotas are per model, so this also adds headroom. Verified against Groq's real
+  "model not found" error.
+- **Each visitor's daily share survives restarts.** With a database it is kept
+  in `scrag.usage_counters`, like the global budget. The free instance restarts
+  after every 15-minute sleep, which used to hand everyone a fresh share.
+  - Keys are a keyed hash (HMAC-SHA256, `SCRAG_CLIENT_KEY_SECRET`) of the
+    address, never the address itself.
+  - The rows are deleted after a day, and the About page says so.
+- **Daily live check** (`.github/workflows/live-check.yml`). Once a day it
+  smoke-tests the live API and the web UI on both hosts, using a recorded
+  sample answer, so it spends no live budget. A failed scheduled run makes
+  GitHub email the maintainer.
+
 ### Changed
 
 - **The API warms up right after it starts.** In the background, it loads the

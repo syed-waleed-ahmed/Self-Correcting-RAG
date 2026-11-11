@@ -4,7 +4,7 @@ Optional: the API runs without it (``SCRAG_DATABASE_URL`` unset), and only the
 session, upload and history endpoints need it. Requires the ``postgres`` extra.
 """
 
-from .budget import PersistentDailyBudget
+from .budget import PersistentClientQuota, PersistentDailyBudget
 from .conversations import ConversationStore
 from .database import Database
 from .documents import DocumentStore
@@ -38,6 +38,7 @@ __all__ = [
     "MessageRecord",
     "PermanentJobError",
     "Persistence",
+    "PersistentClientQuota",
     "PersistentDailyBudget",
     "SessionRecord",
     "SessionRetriever",

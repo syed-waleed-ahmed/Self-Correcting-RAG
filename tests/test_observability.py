@@ -196,3 +196,50 @@ def test_tracing_is_off_by_default_and_costs_nothing():
     assert not tracing_enabled()
     with span("anything", key="value") as current:
         assert current is None
+
+
+def test_llm_falls_back_when_a_model_is_rate_limited_or_retired(monkeypatch):
+    from scrag.errors import LLMError, LLMModelUnavailableError
+    from scrag.llm.client import OpenAICompatibleClient
+
+    class Limited(Exception):
+        status_code = 429
+
+    class Retired(Exception):
+        status_code = 400
+        code = "model_decommissioned"
+
+    class Broken(Exception):
+        status_code = 500
+
+    ok = types.SimpleNamespace(
+        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="from fallback"))],
+        usage=types.SimpleNamespace(prompt_tokens=5, completion_tokens=2),
+    )
+    tried: list[str] = []
+    failures = {"primary": Limited("slow down"), "retired": Retired("gone")}
+
+    def create(**kwargs):
+        tried.append(kwargs["model"])
+        if kwargs["model"] in failures:
+            raise failures[kwargs["model"]]
+        if kwargs["model"] == "broken":
+            raise Broken("server error")
+        return ok
+
+    client = OpenAICompatibleClient(api_key="k", fallback_models=["retired", "spare"])
+    monkeypatch.setattr(client._client.chat.completions, "create", create)
+    assert client.complete(model="primary", system="s", user="u") == "from fallback"
+    assert tried == ["primary", "retired", "spare"]
+
+    # Other errors aren't retried on another model: they mean a bad request or outage.
+    tried.clear()
+    with pytest.raises(LLMError):
+        client.complete(model="broken", system="s", user="u")
+    assert tried == ["broken"]
+
+    # Without fallbacks, a retired model surfaces as its own error.
+    bare = OpenAICompatibleClient(api_key="k")
+    monkeypatch.setattr(bare._client.chat.completions, "create", create)
+    with pytest.raises(LLMModelUnavailableError):
+        bare.complete(model="retired", system="s", user="u")

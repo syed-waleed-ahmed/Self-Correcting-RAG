@@ -12,6 +12,7 @@ from ..config import Settings
 from ..embeddings import Embedder, embed_checked
 from ..logging_config import get_logger
 from ..retriever import SupportsRetrieve
+from .budget import purge_client_counters
 from .conversations import ConversationStore
 from .database import Database, DatabaseStatus
 from .documents import INGEST_JOB, DocumentStore
@@ -68,6 +69,9 @@ class Persistence:
         removed = self.sessions.purge_expired()
         if removed:
             logger.info("Deleted %d expired sessions and their data", removed)
+        counters = purge_client_counters(self.db)
+        if counters:
+            logger.info("Deleted %d per-client quota counters from earlier days", counters)
 
 
 def ingest_document_handler(
