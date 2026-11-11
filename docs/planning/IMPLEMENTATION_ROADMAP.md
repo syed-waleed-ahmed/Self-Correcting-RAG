@@ -334,7 +334,13 @@ Delivered (ADR 0011, [threat model](../threat-model.md)):
   - an unbounded `round()` in the calculator fixed.
 - **Load tests:** Locust profiles with an LLM stand-in, measured locally and in
   CI against the real image at the free plan's 0.1 CPU and 512 MB
-  ([load-testing.md](../load-testing.md)).
+  ([load-testing.md](../load-testing.md)). They found two production problems,
+  both fixed and re-measured:
+  - **Memory:** embedding batches of 32 permanently added about 230 MB per
+    runtime ingest, so one upload could fill most of the instance. Batches of
+    8 add about 65 MB.
+  - **CPU:** ONNX Runtime's thread per core spent about 4x the CPU per query.
+    One thread cut free-tier search from 990 to 7 ms median.
 
 Original scope:
 - Threat model.

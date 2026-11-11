@@ -164,7 +164,7 @@ In the same run, the serving profiles stayed at 214-222 MiB of process memory,
 with peaks of 237-239 MiB. That was 457-462 MiB while the smoke script was
 re-ingesting at batch 32.
 
-## Latency at 0.1 CPU depends on the runner
+## Latency at 0.1 CPU: two runs that disagreed
 
 The free-tier capacity profile, the same code apart from the memory fix, in
 two runs:
@@ -182,6 +182,9 @@ two runs:
 - **The workflow now records the runner's CPU model.** The robust conclusions
   from 0.1 CPU are the ones that held in both runs: no request failed, memory
   stayed bounded, and a flooding client was contained.
+- **The slow run reproduced on the next run** (same runner CPU, search median
+  1,300 ms). That pointed at how the API uses the CPU, not at runner luck: see
+  the next section.
 - **Ten users acting every 1-3 s is far busier than the demo's real traffic,**
   whose rate limit allows each visitor 6 expensive requests a minute.
 
@@ -203,7 +206,21 @@ The deployment image now sets `SCRAG_EMBEDDING_THREADS=1`: about a quarter of
 the CPU per query, for about 1 ms more wall time when the CPU is free. Local
 development keeps the default, which is faster on an idle multi-core machine.
 
-CPU_SECTION_CI
+**Confirmed in CI on the same runner**
+([42840085231](https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/actions/runs/42840085231),
+AMD EPYC 9V74, the CPU of the slow runs above): the free-tier capacity profile,
+0.1 CPU and 512 MB, 10 busy `Visitor`s, run back to back.
+
+| ONNX Runtime threads | Req/s | Failures | Search median / p95 | Sample answer median / p95 | Live answer median / p95 |
+| --- | ---: | ---: | --- | --- | --- |
+| one per core (4, the old behavior) | 3.5 | 0 | 990 / 2,300 ms | 460 / 1,800 ms | 3,100 / 5,700 ms |
+| **1 (the image now)** | **5.0** | 0 | **7 / 120 ms** | **3 / 38 ms** | **1,000 / 1,200 ms** |
+
+With one thread, the free-tier container is no longer CPU-bound at this load.
+Throughput is set by the users' think time, retrieval is back in single-digit
+milliseconds, and a live answer costs little more than its three 300 ms LLM
+calls. The workflow keeps both profiles, so a regression shows up as the two
+rows converging.
 
 ## Running it
 

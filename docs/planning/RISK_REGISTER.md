@@ -27,7 +27,7 @@ Last reviewed: 2026-11-10.
 | R12 | "Advanced RAG" gives no measurable improvement | M | M | Eval harness before retrieval changes (Phase 2); publish only measured deltas | Open |
 | R13 | Scope creep (11 agents, full RBAC, 11 pages) leaves many half-finished features | H | H | Reduced roster (D7); walking skeleton first; phase gates; "done" requires evidence | Open |
 | R14 | A reasoning model silently breaks the guardrail via empty output under small token budgets | M | M | `SCRAG_GUARDRAIL_MAX_TOKENS`; `<think>` stripping; fail-open with `guardrail_score=null` and a warning log | Mitigated (Phase 1) |
-| R15 | Reranking or embedding on 0.1 CPU is too slow for a usable demo | M | M | Reranker optional and off by default; measure p50/p95 latency on the real instance in Phase 2b | Open |
+| R15 | Reranking or embedding on 0.1 CPU is too slow for a usable demo | M | M | Reranker optional and off by default. Measured in Phase 7 load tests at `--cpus 0.1`: with ONNX Runtime's default thread per core, 10 busy users saw search at 990 / 2,300 ms (median / p95). The image now runs one thread: 7 / 120 ms, live answers 1.0 / 1.2 s, no failures (docs/load-testing.md) | Mitigated (Phase 7, measured in CI) |
 
 ## Security and privacy
 

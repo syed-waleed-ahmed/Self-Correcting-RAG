@@ -61,7 +61,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The deployment image runs ONNX Runtime with one thread**
   (`SCRAG_EMBEDDING_THREADS=1`, a new setting). On a CPU-quota host, one
   thread per core spent 12.5 ms of CPU per query embedding against 3.2 ms with
-  one, for about 1 ms more wall time.
+  one, for about 1 ms more wall time. In CI, at 0.1 CPU on the same runner, 10
+  busy users saw search at 7 / 120 ms median / p95 instead of 990 / 2,300 ms,
+  and live answers at 1.0 / 1.2 s instead of 3.1 / 5.7 s.
 - **`scripts/smoke.py` re-ingested the corpus of any non-demo server it
   tested.** It now only sends `/ingest` to the demo, to check the call is
   refused. It also gained `--timeout` for cold, slow instances.
