@@ -115,6 +115,14 @@ without touching orchestration logic.
   - a writer answers from delimited, untrusted evidence with citations;
   - the evaluator verifies the answer and can trigger one correction;
   - hard limits on steps, LLM calls and time, with token usage reported per run.
+
+  ![The live Agent page: the planner wrote one SQL query over the corpus
+  catalog, the sql_query tool answered in 3 ms, and the cited answer passed
+  verification with a score of 1.00](docs/images/agent-sql-live.jpg)
+
+  *The live demo's agent, captured 2026-11-11. Asked which sample documents have
+  the most chunks, it planned one read-only SQL query, cited the rows it
+  returned, and passed verification: 3 LLM calls, 1,089 tokens.*
 - Sessions, uploads and history (optional Postgres + pgvector, ADR 0008):
   - anonymous sessions with hashed tokens and a fixed TTL; deleting a session
     (or its expiry) deletes everything in it;
