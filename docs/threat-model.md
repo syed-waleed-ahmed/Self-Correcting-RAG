@@ -59,7 +59,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | S1 | Impersonating the operator to ingest, read metrics or stats | Constant-time token comparison; JWT algorithms fixed by configuration (a token can't downgrade itself), `exp`/`sub`/`aud` required; on the demo, operator endpoints refuse anyone unproven (`require_operator`). Tests: `test_auth.py`, `test_observability.py` | A leaked operator token: rotate it in Render |
 | S2 | Guessing or stealing a session token | 256 random bits, stored only as a SHA-256 hash; sent in a header, never a URL; 24 h fixed TTL; responses are `Cache-Control: no-store`. Tests: `test_persistence.py` | A token copied off the visitor's own device |
-| S3 | Faking a client address to escape rate limits | Only the address appended by the trusted proxy (`SCRAG_FORWARDED_IP_HOPS` from the right) is used. Tests: `test_security.py` | Attackers with many real addresses (see D1, D2) |
+| S3 | Faking a client address to escape rate limits | The address comes from a header the trusted edge sets: on Render, `CF-Connecting-IP`, which Cloudflare overwrites; elsewhere, the hop the trusted proxy appended to `X-Forwarded-For` (`SCRAG_FORWARDED_IP_HOPS` from the right). Verified live: until 2026-11-11 the demo keyed on Render's internal proxy, so all visitors shared two buckets (see deployment.md). Tests: `test_security.py` | Attackers with many real addresses (see D1, D2) |
 
 ### Tampering and elevation of privilege
 

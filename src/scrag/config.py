@@ -136,7 +136,9 @@ class Settings(BaseSettings):
 
     # Client IP for rate limiting. Behind a reverse proxy, name the header it
     # sets (e.g. "x-forwarded-for") and how many trusted proxy hops append to it;
-    # the address `hops` from the right is used, which clients cannot spoof.
+    # the address `hops` from the right is used, which clients cannot spoof. A
+    # single-value header set by a trusted edge works too: on Render, which sits
+    # behind Cloudflare, use "cf-connecting-ip" (docs/deployment.md).
     forwarded_ip_header: str | None = None
     forwarded_ip_hops: int = Field(default=1, ge=1, le=10)
 
