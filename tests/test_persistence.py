@@ -520,7 +520,8 @@ def test_api_demo_budget_is_persisted(settings, database, sample_chunks):
     with database.connection() as conn:
         rows = conn.execute("SELECT subject, used FROM scrag.usage_counters").fetchall()
     counters = {row["subject"]: row["used"] for row in rows}
-    assert counters.pop("demo:live_runs") == 1
+    global_used = counters.pop("demo:live_runs")
+    assert global_used == 1
     assert remaining == settings.demo_daily_query_budget - 1
     # The visitor's share was charged too, in Postgres, under a hashed key.
     assert isinstance(container.client_quota, PersistentClientQuota)
