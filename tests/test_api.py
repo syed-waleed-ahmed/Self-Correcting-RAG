@@ -113,3 +113,13 @@ def test_api_auth_enforced_when_token_configured(settings, sample_chunks):
         assert bearer.status_code == 200
         # Health probe stays open regardless of auth.
         assert client.get("/health").status_code == 200
+
+
+def test_bare_api_url_opens_the_docs(settings):
+    # The README links the bare API URL; it used to answer 404 not_found.
+    with _client(settings) as client:
+        response = client.get("/", follow_redirects=False)
+        docs = client.get("/", follow_redirects=True)
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+    assert docs.status_code == 200 and "swagger" in docs.text.lower()

@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The bare API URL returned 404.** The README links
+  https://scrag-api.onrender.com, which answered `not_found`; it now redirects
+  to the interactive docs at `/docs`. Found by checking every link in the docs
+  against the live deployment.
+
 ## [0.4.0] - 2026-11-11
 
 ### Added (Phase 7: security hardening, quotas, load tests)
