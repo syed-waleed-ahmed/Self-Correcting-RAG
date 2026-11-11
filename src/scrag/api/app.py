@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -423,4 +423,10 @@ def create_app(
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, include_in_schema=False)
     app.include_router(workspace_router, prefix="/api/v1")  # new routes: versioned only
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        """The bare API URL (linked from the README) opens the interactive docs."""
+        return RedirectResponse("/docs", status_code=307)
+
     return app
