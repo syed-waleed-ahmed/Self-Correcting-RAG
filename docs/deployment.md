@@ -143,9 +143,13 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
     render-internal-proxy`, its first entry is whatever the client sent, and
     its last is one of a few internal proxies that every visitor shares.
   - **How to check it:** after a deploy, send about 30 rapid `/search`
-    requests. A correct setup allows the burst of 3. Until 2026-11-11 the demo
-    keyed on the last hop and allowed 6, because two internal proxies were
-    taking turns.
+    requests. A correct setup allows the burst of 3.
+  - Until 2026-11-11 the demo keyed on the last hop and allowed 6, because two
+    internal proxies were taking turns.
+  - After the 0.4.0 deploy it allows exactly 3.
+  - Render applies a `render.yaml` environment change as a second,
+    Blueprint-triggered deploy after the code deploy. Probe after both
+    finish.
 
 ## Updating the sample answers
 
