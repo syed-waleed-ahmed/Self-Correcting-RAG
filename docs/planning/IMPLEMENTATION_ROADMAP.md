@@ -36,9 +36,9 @@ adopted (see "Decisions taken" below):
 | 5 | Frontend | **Live** (2026-11-10): Ask, My documents, Agent and How it works, with SSE streaming |
 | 6 | Observability and evaluation | **Done** (2026-11-10): metrics, cost per answer, optional tracing, 60-question golden set, answer-quality comparison |
 | 7 | Security hardening, quotas, load tests | **Done** (2026-11-10): threat model, sniffed uploads, read-only SQL and SSRF-safe fetch tools, layered quotas, measured load tests |
-| 8 | Full free-tier deployment | Not started |
-| 9 | Live demo verification | Not started |
-| 10 | GitHub showcase release | Not started |
+| 8 | Full free-tier deployment | **Live**: Render Free (API and static UI), Neon Free, GitHub Pages mirror; every merge to `main` deploys |
+| 9 | Live demo verification | **Ongoing**: `scripts/smoke.py` (with the Phase 7 checks and `--flood-check`) runs in CI against the image and against the live demo after each deploy; the cost log is in `COST_ZERO_VERIFICATION.md` |
+| 10 | GitHub showcase release | **v0.4.0** prepared (Phases 6 and 7); the maintainer tags the release |
 
 ## Phase 1: Core reliability (done)
 

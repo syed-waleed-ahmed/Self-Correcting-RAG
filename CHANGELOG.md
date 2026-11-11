@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
 ### Added (Phase 7: security hardening, quotas, load tests)
 
 - **Threat model** (`docs/threat-model.md`): STRIDE per trust boundary, with
@@ -448,7 +450,8 @@ deployable package with a REST API and CLI over a shared core.
 - Removed an f-string backslash that raised `SyntaxError` on Python < 3.12; the
   package now runs on Python 3.10+.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.4.0
 [0.3.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.3.0
 
 Versions before 0.3.0 were not tagged.
