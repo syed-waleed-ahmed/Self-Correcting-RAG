@@ -86,3 +86,33 @@ def test_fastembed_threads_reach_onnx_runtime(monkeypatch):
     }
     default = create_embedder(Settings(_env_file=None, embedding_backend="fastembed"))
     assert isinstance(default, FastEmbedEmbedder) and default.threads is None
+
+
+def test_concurrent_first_use_loads_the_model_once(monkeypatch):
+    """Warm-up and a visitor's request can race for the first load: one load wins."""
+    import threading
+    import time
+
+    from scrag.embeddings import FastEmbedEmbedder
+
+    loads: list[int] = []
+
+    class SlowTextEmbedding:
+        def __init__(self, name, cache_dir=None, threads=None):
+            loads.append(1)
+            time.sleep(0.2)  # long enough for the other thread to arrive meanwhile
+
+        def embed(self, texts, batch_size=None):
+            return iter(np.ones((len(texts), 384), dtype="float32"))
+
+    module = types.ModuleType("fastembed")
+    module.TextEmbedding = SlowTextEmbedding  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fastembed", module)
+
+    embedder = FastEmbedEmbedder(dim=384)
+    workers = [threading.Thread(target=embedder.embed, args=(["q"],)) for _ in range(4)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(5)
+    assert len(loads) == 1

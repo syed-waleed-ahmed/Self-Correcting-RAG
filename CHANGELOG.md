@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The API warms up right after it starts.** In the background, it loads the
+  embedding model and builds the keyword index with one search.
+  - Before this, the first visitor after every deploy or wake-up paid for both.
+    On the live demo, retrieval took 4.6 s for that first search and about
+    0.15 s afterwards.
+  - Locally, the first real search drops from 1.5 s to 4 ms.
+  - The server answers health checks while warming. Both embedders now load
+    under a lock, so a request that arrives meanwhile waits for the same load
+    instead of starting a second one.
+  - Opt out with `SCRAG_WARM_UP_ON_START=false`.
+
 ### Fixed
 
 - **The bare API URL returned 404.** The README links

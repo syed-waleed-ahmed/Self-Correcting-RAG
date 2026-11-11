@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # Render Free (0.1 CPU) use 1: per query it used 3.2 ms of CPU against 12.5 ms
     # with the default, for 1 ms more wall time. The Docker image sets 1.
     embedding_threads: int | None = Field(default=None, ge=1, le=64)
+    # Load the model and build the keyword index in the background right after
+    # startup, so the first visitor after a deploy or wake-up doesn't wait for it.
+    warm_up_on_start: bool = True
 
     # --- Chunking ---------------------------------------------------------
     chunk_size: int = Field(default=1000, gt=0, description="Chunk size in characters.")

@@ -13,6 +13,7 @@ Request validation errors keep FastAPI's standard 422 shape.
 from __future__ import annotations
 
 import re
+import threading
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -346,6 +347,11 @@ def create_app(
         loaded = c.load_index()
         if c.persistence is not None:
             c.persistence.start()  # never blocks on the database (see Persistence.start)
+        if settings.warm_up_on_start:
+            # In the background, so the server answers health checks (and the UI's
+            # wake-up poll) at once. A request that needs the model meanwhile waits
+            # on the embedder's load lock instead of loading a second copy.
+            threading.Thread(target=c.warm_up, name="scrag-warm-up", daemon=True).start()
         logger.info(
             "Startup complete (index loaded=%s, size=%d, llm=%s, persistence=%s)",
             loaded,

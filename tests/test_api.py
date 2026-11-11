@@ -123,3 +123,27 @@ def test_bare_api_url_opens_the_docs(settings):
     assert response.status_code == 307
     assert response.headers["location"] == "/docs"
     assert docs.status_code == 200 and "swagger" in docs.text.lower()
+
+
+def test_warm_up_loads_the_model_and_index_at_startup(settings, sample_chunks):
+    import threading
+
+    queries: list[list[str]] = []
+
+    class RecordingEmbedder(FakeEmbedder):
+        def embed(self, texts):
+            queries.append(list(texts))
+            return super().embed(texts)
+
+    embedder = RecordingEmbedder()
+    store = NumpyVectorStore(dim=embedder.dim, path=settings.index_dir)
+    store.add(FakeEmbedder().embed([c.text for c in sample_chunks]), sample_chunks)
+    container = build_container(settings, embedder=embedder, store=store)
+    assert build_container(settings, embedder=FakeEmbedder()).warm_up() is None  # empty index
+
+    with TestClient(create_app(settings, container=container)):
+        for thread in threading.enumerate():
+            if thread.name == "scrag-warm-up":
+                thread.join(5)
+    assert ["warm up"] in queries  # the startup search ran, off the request path
+    assert container.warm_up() is not None

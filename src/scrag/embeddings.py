@@ -13,6 +13,7 @@ dimension the index was built with.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
@@ -70,6 +71,7 @@ class SentenceTransformerEmbedder:
         self._dim = dim
         self.batch_size = batch_size
         self._model: Any = None  # loaded on first use
+        self._load_lock = threading.Lock()
 
     @property
     def dim(self) -> int:
@@ -77,32 +79,37 @@ class SentenceTransformerEmbedder:
 
     def _get_model(self) -> Any:
         if self._model is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-            except ImportError as exc:  # pragma: no cover - depends on optional stack
-                raise RuntimeError(
-                    "The local embedder requires sentence-transformers. Install it with:\n"
-                    '    pip install "self-correcting-rag[local]"'
-                ) from exc
-            logger.info("Loading embedding model %s", self.model_name)
-            model = SentenceTransformer(self.model_name)
-            # sentence-transformers >=5 renamed this method; support both.
-            dim_getter = getattr(
-                model,
-                "get_embedding_dimension",
-                getattr(model, "get_sentence_embedding_dimension", None),
-            )
-            loaded_dim = dim_getter() if callable(dim_getter) else None
-            if loaded_dim and loaded_dim != self._dim:
-                # Fail fast: silently adopting the model's dimension would only
-                # move the failure to the vector store, with a worse message.
-                raise EmbeddingDimensionError(
-                    f"Embedding model {self.model_name!r} produces {loaded_dim}-dim vectors "
-                    f"but SCRAG_EMBEDDING_DIM={self._dim}. Set SCRAG_EMBEDDING_DIM={loaded_dim} "
-                    "and re-ingest."
-                )
-            self._model = model
+            with self._load_lock:  # one load, even when warm-up and a request race
+                if self._model is None:
+                    self._model = self._load()
         return self._model
+
+    def _load(self) -> Any:
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:  # pragma: no cover - depends on optional stack
+            raise RuntimeError(
+                "The local embedder requires sentence-transformers. Install it with:\n"
+                '    pip install "self-correcting-rag[local]"'
+            ) from exc
+        logger.info("Loading embedding model %s", self.model_name)
+        model = SentenceTransformer(self.model_name)
+        # sentence-transformers >=5 renamed this method; support both.
+        dim_getter = getattr(
+            model,
+            "get_embedding_dimension",
+            getattr(model, "get_sentence_embedding_dimension", None),
+        )
+        loaded_dim = dim_getter() if callable(dim_getter) else None
+        if loaded_dim and loaded_dim != self._dim:
+            # Fail fast: silently adopting the model's dimension would only
+            # move the failure to the vector store, with a worse message.
+            raise EmbeddingDimensionError(
+                f"Embedding model {self.model_name!r} produces {loaded_dim}-dim vectors "
+                f"but SCRAG_EMBEDDING_DIM={self._dim}. Set SCRAG_EMBEDDING_DIM={loaded_dim} "
+                "and re-ingest."
+            )
+        return model
 
     def embed(self, texts: list[str]) -> np.ndarray:
         if not texts:
@@ -140,6 +147,7 @@ class FastEmbedEmbedder:
         self.cache_dir = cache_dir
         self.threads = threads  # ONNX Runtime threads; None = one per core
         self._model: Any = None
+        self._load_lock = threading.Lock()
 
     @property
     def dim(self) -> int:
@@ -147,28 +155,33 @@ class FastEmbedEmbedder:
 
     def _get_model(self) -> Any:
         if self._model is None:
-            try:
-                from fastembed import TextEmbedding
-            except ImportError as exc:  # pragma: no cover - depends on optional stack
-                raise RuntimeError(
-                    "The fastembed backend requires fastembed. Install it with:\n"
-                    '    pip install "self-correcting-rag[onnx]"'
-                ) from exc
-            logger.info(
-                "Loading embedding model %s (fastembed, threads=%s)",
-                self.model_name,
-                self.threads or "auto",
-            )
-            model = TextEmbedding(self.model_name, cache_dir=self.cache_dir, threads=self.threads)
-            probe = np.asarray(next(iter(model.embed(["dimension probe"]))), dtype="float32")
-            if probe.shape[-1] != self._dim:
-                raise EmbeddingDimensionError(
-                    f"Embedding model {self.model_name!r} produces {probe.shape[-1]}-dim "
-                    f"vectors but SCRAG_EMBEDDING_DIM={self._dim}. Set "
-                    f"SCRAG_EMBEDDING_DIM={probe.shape[-1]} and re-ingest."
-                )
-            self._model = model
+            with self._load_lock:  # one load, even when warm-up and a request race
+                if self._model is None:
+                    self._model = self._load()
         return self._model
+
+    def _load(self) -> Any:
+        try:
+            from fastembed import TextEmbedding
+        except ImportError as exc:  # pragma: no cover - depends on optional stack
+            raise RuntimeError(
+                "The fastembed backend requires fastembed. Install it with:\n"
+                '    pip install "self-correcting-rag[onnx]"'
+            ) from exc
+        logger.info(
+            "Loading embedding model %s (fastembed, threads=%s)",
+            self.model_name,
+            self.threads or "auto",
+        )
+        model = TextEmbedding(self.model_name, cache_dir=self.cache_dir, threads=self.threads)
+        probe = np.asarray(next(iter(model.embed(["dimension probe"]))), dtype="float32")
+        if probe.shape[-1] != self._dim:
+            raise EmbeddingDimensionError(
+                f"Embedding model {self.model_name!r} produces {probe.shape[-1]}-dim "
+                f"vectors but SCRAG_EMBEDDING_DIM={self._dim}. Set "
+                f"SCRAG_EMBEDDING_DIM={probe.shape[-1]} and re-ingest."
+            )
+        return model
 
     def embed(self, texts: list[str]) -> np.ndarray:
         if not texts:
