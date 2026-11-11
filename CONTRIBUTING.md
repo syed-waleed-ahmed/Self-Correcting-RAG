@@ -106,6 +106,20 @@ change that reverses one should add a new ADR explaining why.
 
 Keep PRs focused: one concern per PR is much easier to review than a bundle.
 
+## Releasing
+
+A release is one PR that:
+1. sets the new version in `pyproject.toml`, `src/scrag/__init__.py`,
+   `CITATION.cff` (with `date-released`) and `web/package.json` (run
+   `npm version <x.y.z> --no-git-tag-version` in `web/` so the lockfile
+   follows);
+2. renames "Unreleased" in [CHANGELOG.md](CHANGELOG.md) to the version and
+   date, starts a new empty "Unreleased", and updates the compare links at the
+   bottom.
+
+`tests/test_version.py` fails if any of these disagree. After merging, publish
+a GitHub release with the tag `v<x.y.z>` on `main`.
+
 ## Reporting bugs and requesting features
 
 Use the issue forms. They ask for the details that make a report actionable:
