@@ -11,6 +11,7 @@ a clear 503.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -92,6 +93,25 @@ class Container:
         except Exception as exc:  # noqa: BLE001 - surface but don't crash startup
             logger.warning("Could not load persisted index: %s", exc)
             return False
+
+    def warm_up(self) -> float | None:
+        """Load the embedding model and build the keyword index with one search.
+
+        Otherwise the first visitor after every start pays for both (measured
+        on the free instance: about 4.5 s). Returns the seconds taken, or None
+        when the index is empty or warming failed (logged, never raised).
+        """
+        if len(self.store) == 0:
+            return None
+        start = time.perf_counter()
+        try:
+            self.retriever.retrieve("warm up", 1)
+        except Exception:  # noqa: BLE001 - the first request will simply load lazily
+            logger.warning("Warm-up failed; the first request will load the model", exc_info=True)
+            return None
+        took = time.perf_counter() - start
+        logger.info("Warm-up done in %.1fs: embedding model and keyword index ready", took)
+        return took
 
     def refresh_index(self) -> bool:
         """Pick up an index persisted by another process (e.g. another API worker).

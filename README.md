@@ -483,7 +483,7 @@ SCRAG_LLM_API_KEY=mock SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 scrag serve &
 locust -f loadtests/locustfile.py --headless -u 20 -r 5 -t 2m --host http://127.0.0.1:8000 Visitor
 ```
 
-The 337 tests run in seconds with no network or API key. Two groups skip
+The 339 tests run in seconds with no network or API key. Two groups skip
 unless their dependency is present, and CI runs both:
 - the 9 FAISS tests need `faiss-cpu`;
 - the 27 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
