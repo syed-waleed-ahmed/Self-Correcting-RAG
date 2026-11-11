@@ -131,12 +131,14 @@ class FastEmbedEmbedder:
         dim: int = 384,
         batch_size: int = 32,
         cache_dir: str | None = None,
+        threads: int | None = None,
     ) -> None:
         # fastembed names sentence-transformers models with their HF org prefix.
         self.model_name = model_name if "/" in model_name else f"sentence-transformers/{model_name}"
         self._dim = dim
         self.batch_size = batch_size
         self.cache_dir = cache_dir
+        self.threads = threads  # ONNX Runtime threads; None = one per core
         self._model: Any = None
 
     @property
@@ -152,8 +154,12 @@ class FastEmbedEmbedder:
                     "The fastembed backend requires fastembed. Install it with:\n"
                     '    pip install "self-correcting-rag[onnx]"'
                 ) from exc
-            logger.info("Loading embedding model %s (fastembed)", self.model_name)
-            model = TextEmbedding(self.model_name, cache_dir=self.cache_dir)
+            logger.info(
+                "Loading embedding model %s (fastembed, threads=%s)",
+                self.model_name,
+                self.threads or "auto",
+            )
+            model = TextEmbedding(self.model_name, cache_dir=self.cache_dir, threads=self.threads)
             probe = np.asarray(next(iter(model.embed(["dimension probe"]))), dtype="float32")
             if probe.shape[-1] != self._dim:
                 raise EmbeddingDimensionError(
@@ -189,6 +195,7 @@ def create_embedder(settings: Settings) -> Embedder:
             dim=settings.embedding_dim,
             batch_size=settings.embedding_batch_size,
             cache_dir=cache_dir,
+            threads=settings.embedding_threads,
         )
     return SentenceTransformerEmbedder(
         model_name=settings.embedding_model,

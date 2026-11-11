@@ -22,6 +22,7 @@ from scrag.container import build_container
 from scrag.errors import (
     DemoBudgetExhaustedError,
     NotFoundError,
+    SessionCapacityError,
     SessionQuotaExceededError,
     StorageFullError,
 )
@@ -106,6 +107,21 @@ def test_expired_sessions_are_rejected_then_purged(settings, database):
     assert p.sessions.authenticate(token) is None
     assert p.sessions.purge_expired() == 1
     assert _count(database, "sessions") == 0
+
+
+def test_live_session_cap_counts_only_unexpired_sessions(settings, database):
+    p = _persistence(settings, database, persistence_max_sessions=2)
+    first, _ = p.sessions.create()
+    p.sessions.create()
+    with pytest.raises(SessionCapacityError):
+        p.sessions.create()
+    with database.connection() as conn:
+        conn.execute(
+            "UPDATE scrag.sessions SET expires_at = now() - interval '1 second' WHERE id = %s",
+            (first.id,),
+        )
+    p.sessions.create()  # an expired session no longer counts, even before it is purged
+    assert _count(database, "sessions") == 3
 
 
 def test_deleting_a_session_deletes_all_of_its_data(settings, database):
@@ -459,6 +475,10 @@ def test_api_upload_validation(settings, database):
         assert post("big.txt", b"rag " * 100).status_code == 413
         assert post("empty.txt", b"   ").json()["error"] == "unreadable_document"
         assert post("bad.json", b"{not json").json()["error"] == "unreadable_document"
+        # Content sniffing: the bytes must match the extension.
+        assert post("fake.pdf", b"plain text").json()["error"] == "unreadable_document"
+        assert post("fake.docx", b"plain text").json()["error"] == "unreadable_document"
+        assert post("binary.txt", b"rag\x00\x01").json()["error"] == "unreadable_document"
         assert post("../../etc/ok.txt", b"rag retrieval").status_code == 202
         listed = client.get("/api/v1/documents", headers=me).json()
         assert [d["filename"] for d in listed] == ["ok.txt"]  # path stripped
@@ -498,6 +518,16 @@ def test_api_demo_budget_is_persisted(settings, database, sample_chunks):
     with database.connection() as conn:
         used = conn.execute("SELECT sum(used) AS n FROM scrag.usage_counters").fetchone()["n"]
     assert used == 1 and remaining == settings.demo_daily_query_budget - 1
+
+
+def test_api_refuses_sessions_past_the_live_cap(settings, database):
+    client, _ = _app(settings, persistence_max_sessions=1)
+    with client:
+        _session(client)
+        full = client.post("/api/v1/sessions")
+    assert full.status_code == 503
+    assert full.json()["error"] == "session_capacity"
+    assert full.headers["Retry-After"] == "3600"
 
 
 def test_api_admin_stats_needs_the_operator(settings, database):

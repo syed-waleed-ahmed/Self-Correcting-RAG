@@ -41,9 +41,10 @@ export function Shell({ children }: { children: ReactNode }) {
           <ConnectionPill connection={connection} />
           {demo && <Pill>{demo.model}</Pill>}
           {budget && (
-            <Pill tone={budget.remaining === 0 ? "amber" : "slate"}>
-              <span title="Live AI runs left today across all visitors (free-tier budget)">
+            <Pill tone={budget.remaining === 0 || budget.client_remaining === 0 ? "amber" : "slate"}>
+              <span title="Live AI runs left today across all visitors (free-tier budget), and your own share of them">
                 {budget.remaining}/{budget.limit} live runs left today
+                {budget.client_remaining !== undefined && ` · ${budget.client_remaining} for you`}
               </span>
             </Pill>
           )}

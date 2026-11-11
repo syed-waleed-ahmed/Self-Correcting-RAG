@@ -28,9 +28,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .. import __version__
 from ..config import Settings, get_settings
 from ..container import Container, build_container
-from ..errors import ScragError
+from ..demo import RateLimiter
+from ..errors import RateLimitedError, ScragError
 from ..logging_config import configure_logging, get_logger, request_id_var
 from ..observability import configure_tracing, metrics, set_attributes, shutdown_tracing, span
+from .deps import client_address
 from .routes import router
 from .workspace import router as workspace_router
 
@@ -110,8 +112,11 @@ def route_template(scope: Scope) -> str:
 
     Rebuilt from the request path and the matched path parameters, because an
     included router's route object doesn't carry its mount prefix. Requests that
-    matched no route share the label ``unmatched``.
+    matched no route share the label ``unmatched``; middleware that answers
+    before routing can name itself in ``scope["scrag.route"]``.
     """
+    if (label := scope.get("scrag.route")) is not None:
+        return str(label)
     if scope.get("route") is None:
         return "unmatched"
     path: str = scope.get("path", "")
@@ -168,37 +173,150 @@ class MetricsMiddleware:
                     )
 
 
-class UploadLimitMiddleware:
-    """Reject oversized uploads before the multipart body is read.
+class FloodGuardMiddleware:
+    """A cheap per-client cap on all requests, checked before routing (demo mode).
 
-    Starlette spools a multipart upload to disk while parsing it, before any
-    route code runs, so the size limit has to be enforced here. Uploads must
-    declare a ``Content-Length`` (browsers always do for form uploads); the
-    server enforces that the body matches it.
+    The demo rate limit covers only the expensive endpoints (search, query,
+    agent runs, session creation, uploads). Everything else, including the
+    database-backed reads of sessions, documents, jobs and history, had no
+    per-client limit. Measured: a client flooding ``GET /demo`` was served 900
+    requests a second; with this guard it got 417 in three minutes, and other
+    visitors' p95 latency went back to about baseline (docs/load-testing.md).
+    Health checks are exempt, so a platform's liveness probe is never throttled.
     """
 
-    def __init__(self, app: ASGIApp, *, max_bytes: int, path_suffix: str = "/documents") -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        limiter: RateLimiter,
+        forwarded_ip_header: str | None,
+        forwarded_ip_hops: int,
+        exempt_paths: frozenset[str] = frozenset({"/health", "/api/v1/health"}),
+    ) -> None:
         self.app = app
-        self.max_bytes = max_bytes
-        self.path_suffix = path_suffix
+        self.limiter = limiter
+        self.header = forwarded_ip_header
+        self.hops = forwarded_ip_hops
+        self.exempt_paths = exempt_paths
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] == "http"
-            and scope["method"] == "POST"
-            and scope["path"].rstrip("/").endswith(self.path_suffix)
-        ):
-            declared = next((v for k, v in scope["headers"] if k == b"content-length"), None)
-            status, code, detail = 0, "", ""
-            if declared is None or not declared.isdigit():
-                status, code, detail = 411, "length_required", "Uploads need a Content-Length."
-            elif int(declared) > self.max_bytes:
-                status, code, detail = 413, "upload_too_large", "The uploaded file is too large."
-            if status:
-                response = JSONResponse(status_code=status, content=error_body(code, detail))
+        if scope["type"] == "http" and scope["path"] not in self.exempt_paths:
+            try:
+                self.limiter.check(client_address(scope, self.header, self.hops))
+            except RateLimitedError as exc:
+                scope["scrag.route"] = "flood_guard"  # its own metrics label
+                response = JSONResponse(
+                    status_code=429,
+                    content=error_body(exc.code, exc.public_message),
+                    headers=exc.headers,
+                )
                 await response(scope, receive, send)
                 return
         await self.app(scope, receive, send)
+
+
+class BodyLimitMiddleware:
+    """Cap every request body before the app buffers it.
+
+    Uploads (``POST .../documents``) may be up to ``upload_max_bytes`` and must
+    declare a ``Content-Length`` (browsers always do for form uploads), because
+    Starlette spools a multipart body to disk while parsing it, before any route
+    code runs. Every other body is capped at ``max_bytes``: JSON requests are
+    tiny, and without a cap a client could make the server buffer megabytes
+    before validation rejects them. A declared length over the cap is refused
+    at once; a body without one (chunked) is counted as it arrives and cut off.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_bytes: int,
+        upload_max_bytes: int,
+        upload_path_suffix: str = "/documents",
+    ) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+        self.upload_max_bytes = upload_max_bytes
+        self.upload_path_suffix = upload_path_suffix
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        upload = scope["method"] == "POST" and scope["path"].rstrip("/").endswith(
+            self.upload_path_suffix
+        )
+        limit = self.upload_max_bytes if upload else self.max_bytes
+        declared = next((v for k, v in scope["headers"] if k == b"content-length"), None)
+        status, code, detail = 0, "", ""
+        if upload and (declared is None or not declared.isdigit()):
+            status, code, detail = 411, "length_required", "Uploads need a Content-Length."
+        elif declared is not None and declared.isdigit() and int(declared) > limit:
+            status, code = 413, "upload_too_large" if upload else "payload_too_large"
+            detail = (
+                "The uploaded file is too large." if upload else "The request body is too large."
+            )
+        if status:
+            response = JSONResponse(status_code=status, content=error_body(code, detail))
+            await response(scope, receive, send)
+            return
+
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    # FastAPI re-raises HTTPExceptions from body parsing, so this
+                    # becomes an ordinary 413 error response.
+                    raise StarletteHTTPException(413, "The request body is too large.")
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+
+# Hardening headers on every API response. Nothing here is rendered by a browser
+# except the HTML API docs, which load Swagger UI from a CDN and so keep their
+# own policy; everything else gets a deny-all Content-Security-Policy.
+_SECURITY_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+    "x-frame-options": "DENY",
+    "cross-origin-opener-policy": "same-origin",
+}
+_API_CSP = "default-src 'none'; frame-ancestors 'none'"
+
+
+class SecurityHeadersMiddleware:
+    """Add hardening headers, and ``Cache-Control: no-store`` unless a route set one.
+
+    API responses can carry session tokens (``POST /sessions``) or a visitor's
+    documents and history, so no shared cache may keep them.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in _SECURITY_HEADERS.items():
+                    headers.setdefault(name, value)
+                headers.setdefault("cache-control", "no-store")
+                if not headers.get("content-type", "").startswith("text/html"):
+                    headers.setdefault("content-security-policy", _API_CSP)
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 def create_app(
@@ -251,14 +369,25 @@ def create_app(
     )
 
     # Order matters: the last middleware added is the outermost. CORS wraps the
-    # request-context layer so even sanitized 500s carry CORS headers, the upload
-    # limit runs inside it so its errors carry a request ID, and metrics wrap the
-    # request context so they see the final status.
+    # request-context layer so even sanitized 500s carry CORS headers, the flood
+    # guard and body limit run inside it so their errors carry a request ID (the
+    # guard first: it is the cheapest way to refuse a request), security headers
+    # wrap the request context so sanitized 500s get them too, and metrics wrap
+    # both so they see the final status.
     app.add_middleware(
-        UploadLimitMiddleware,
-        max_bytes=settings.upload_max_bytes + _MULTIPART_OVERHEAD_BYTES,
+        BodyLimitMiddleware,
+        max_bytes=settings.max_request_bytes,
+        upload_max_bytes=settings.upload_max_bytes + _MULTIPART_OVERHEAD_BYTES,
     )
+    if settings.demo_mode:  # outside the body limit: a flood is refused before anything else
+        app.add_middleware(
+            FloodGuardMiddleware,
+            limiter=RateLimiter(settings.demo_flood_limit_per_minute, settings.demo_flood_burst),
+            forwarded_ip_header=settings.forwarded_ip_header,
+            forwarded_ip_hops=settings.forwarded_ip_hops,
+        )
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(MetricsMiddleware)
     app.add_middleware(
         CORSMiddleware,

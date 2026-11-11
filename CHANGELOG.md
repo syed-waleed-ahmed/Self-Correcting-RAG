@@ -6,6 +6,68 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Phase 7: security hardening, quotas, load tests)
+
+- **Threat model** (`docs/threat-model.md`): STRIDE per trust boundary, with
+  the test behind every mitigation and the residual risks. **ADR 0011**.
+- **Agent tools, read-only by construction:**
+  - `sql_query`: one SQLite SELECT over a private in-memory catalog of the
+    knowledge base (`documents`, `chunks`). An authorizer allows only reads of
+    those tables and pure functions; `query_only`, a 1 s budget, row and value
+    caps.
+  - `web_fetch` (off unless `SCRAG_HTTP_TOOL_ALLOWED_HOSTS` is set):
+    - HTTPS GETs to allow-listed hosts;
+    - private, loopback, link-local, CGNAT and IPv4-embedding IPv6 addresses
+      refused after DNS;
+    - the connection pinned to the checked address;
+    - redirects re-checked at every hop;
+    - uncompressed text only, with size and time caps.
+- **Upload validation:**
+  - content sniffing: a PDF needs its header, a DOCX must be a real DOCX
+    container, and text can't contain NUL bytes;
+  - DOCX zip-bomb checks from the ZIP directory, before anything is inflated;
+  - a 30 s PDF extraction budget.
+- **Quotas:**
+  - a per-client flood guard on all requests, before routing (demo; health
+    exempt);
+  - each client's daily share of live runs (`SCRAG_DEMO_CLIENT_DAILY_RUNS`,
+    default 10), shown in the UI next to the global budget;
+  - a global cap on live sessions (`SCRAG_PERSISTENCE_MAX_SESSIONS`);
+  - a body-size cap on every request (`SCRAG_MAX_REQUEST_BYTES`, 64 KiB).
+- **Security headers** on API responses: `Cache-Control: no-store`, `nosniff`,
+  a deny-all CSP (except the HTML docs), `X-Frame-Options`, `Referrer-Policy`.
+- **Load tests** (`loadtests/`, `load` extra):
+  - Locust profiles (capacity, and abuse with one flooding client), an
+    OpenAI-compatible LLM stand-in, and a results summarizer;
+  - a `Load test` workflow runs them against the real image at 0.1 CPU and
+    512 MB;
+  - results are in `docs/load-testing.md`.
+- **CI:** a read-only token for the CI workflow; Dependabot for the Docker
+  base image.
+
+### Fixed (Phase 7)
+
+- **Parser crashes returned 500s instead of 422s.** Deeply nested JSON and CSV
+  fields over 128 KiB now fail cleanly.
+- **The calculator's `round()` accepted any number of digits.**
+  `round(5, -10**9)` made Python compute 10**(10**9) in a thread its timeout
+  can't stop. Digits are now bounded to ±100.
+- **Secrets showed in `repr(settings)`.** The provider key and operator token
+  no longer appear.
+- **Embedding batch size: the default is now 8 (was 32).** ONNX Runtime keeps
+  the memory its largest batch needed: a runtime ingest at batch 32 added
+  229 MB for good, which on the demo's 512 MB instance one upload could
+  trigger. At batch 8 it adds 65 MB, at the same speed (`docs/load-testing.md`).
+- **The deployment image runs ONNX Runtime with one thread**
+  (`SCRAG_EMBEDDING_THREADS=1`, a new setting). On a CPU-quota host, one
+  thread per core spent 12.5 ms of CPU per query embedding against 3.2 ms with
+  one, for about 1 ms more wall time. In CI, at 0.1 CPU on the same runner, 10
+  busy users saw search at 7 / 120 ms median / p95 instead of 990 / 2,300 ms,
+  and live answers at 1.0 / 1.2 s instead of 3.1 / 5.7 s.
+- **`scripts/smoke.py` re-ingested the corpus of any non-demo server it
+  tested.** It now only sends `/ingest` to the demo, to check the call is
+  refused. It also gained `--timeout` for cold, slow instances.
+
 ### Added (Phase 6: observability and evaluation)
 
 - **Prometheus metrics** at `GET /metrics` (and `/api/v1/metrics`; operator

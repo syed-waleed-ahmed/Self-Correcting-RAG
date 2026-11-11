@@ -26,6 +26,12 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
+  # The deployment image's base (python:3.12-slim): picks up security rebuilds.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

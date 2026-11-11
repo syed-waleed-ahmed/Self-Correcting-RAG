@@ -7,6 +7,7 @@ unversioned paths. Session, upload and history routes live in
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +49,7 @@ from ..orchestration import AgentRunResult, ToolRegistry, calculator_tool, docum
 from ..retriever import SupportsRetrieve
 from ..usage import estimate_cost
 from .deps import (
+    client_key,
     get_container,
     operator_status,
     optional_session,
@@ -81,6 +83,36 @@ def _demo_limits(request: Request, query: str) -> None:
             f"query of {len(query)} chars exceeds {c.settings.demo_max_query_chars}"
         )
     rate_limit(request)
+
+
+def _quota_client(request: Request) -> str | None:
+    """The key a live run is charged to (None when no per-client quota applies)."""
+    return client_key(request) if get_container(request).client_quota is not None else None
+
+
+def _charge(c: Container, client: str | None, units: int) -> Callable[[], None]:
+    """Charge a live run to the client's share and the global budget.
+
+    Returns the matching refund, for runs that end up producing no answer.
+    """
+    quota = c.client_quota if client is not None else None
+    if quota is not None and client is not None:
+        quota.consume(client, units)
+    if c.budget is not None:
+        try:
+            c.budget.consume(units)
+        except ScragError:
+            if quota is not None and client is not None:
+                quota.refund(client, units)
+            raise
+
+    def refund() -> None:
+        if quota is not None and client is not None:
+            quota.refund(client, units)
+        if c.budget is not None:
+            c.budget.refund(units)
+
+    return refund
 
 
 def _top_k(c: Container, requested: int | None) -> int:
@@ -226,6 +258,9 @@ def demo_info(request: Request) -> DemoInfo:
     """What a demo client needs: sample questions, limits and today's budget."""
     c = get_container(request)
     s = c.settings
+    budget = c.budget.status() if c.budget else None
+    if budget is not None and c.client_quota is not None:
+        budget["client_remaining"] = c.client_quota.remaining(client_key(request))
     return DemoInfo(
         demo_mode=s.demo_mode,
         llm_configured=c.pipeline is not None,
@@ -238,10 +273,12 @@ def demo_info(request: Request) -> DemoInfo:
             "rate_limit_per_minute": s.demo_rate_limit_per_minute,
             "rate_limit_burst": s.demo_rate_limit_burst,
             "max_self_correct_steps": s.max_self_correct_steps,
+            "client_daily_runs": s.demo_client_daily_runs,
+            "agent_budget_cost": s.agent_budget_cost,
         }
         if s.demo_mode
         else {},
-        budget=c.budget.status() if c.budget else None,
+        budget=budget,
         features={
             "sessions": c.persistence is not None,
             "agent": c.agent is not None,
@@ -282,6 +319,7 @@ class _QueryPlan:
     retriever: SupportsRetrieve | None
     top_k: int
     fingerprint: str | None
+    client: str | None = None  # whose daily share a live run is charged to
 
 
 def _prepare_query(request: Request, body: QueryRequest) -> _QueryPlan:
@@ -304,6 +342,7 @@ def _prepare_query(request: Request, body: QueryRequest) -> _QueryPlan:
         top_k=_top_k(c, body.top_k),
         # Cached answers exist only for the shared sample corpus.
         fingerprint=c.corpus_fingerprint() if body.scope == "samples" else None,
+        client=_quota_client(request),
     )
 
 
@@ -326,8 +365,7 @@ def _answer(c: Container, plan: _QueryPlan, emit: Emit | None = None) -> QueryRe
                 emit({"stage": "cache", "status": "hit", "source": hit.source})
 
     if response is None:
-        if c.budget is not None:
-            c.budget.consume()
+        refund = _charge(c, plan.client, 1)
         try:
             result = c.pipeline.run(
                 body.query, top_k=plan.top_k, retriever=plan.retriever, on_event=emit
@@ -335,11 +373,10 @@ def _answer(c: Container, plan: _QueryPlan, emit: Emit | None = None) -> QueryRe
         except ScragError:
             # The visitor got no answer (e.g. the provider was down or rate limited
             # us), so the run doesn't count against the daily budget.
-            if c.budget is not None:
-                c.budget.refund()
+            refund()
             raise
-        if c.budget is not None and result.attempts == 0:
-            c.budget.refund()  # nothing was retrieved, so no LLM call was made
+        if result.attempts == 0:
+            refund()  # nothing was retrieved, so no LLM call was made
         response = _to_response(result, c.settings.llm_prices).model_copy(
             update={"scope": body.scope}
         )
@@ -397,6 +434,7 @@ class _AgentPlan:
     task: str
     approved: frozenset[str]
     registry: ToolRegistry | None
+    client: str | None = None
 
 
 def _prepare_agent(request: Request, body: AgentRunRequest) -> _AgentPlan:
@@ -417,24 +455,23 @@ def _prepare_agent(request: Request, body: AgentRunRequest) -> _AgentPlan:
         registry = ToolRegistry()
         registry.register(document_search_tool(lambda q, k: retriever.retrieve(q, k)))
         registry.register(calculator_tool())
-    return _AgentPlan(task=task, approved=approved, registry=registry)
+    return _AgentPlan(
+        task=task, approved=approved, registry=registry, client=_quota_client(request)
+    )
 
 
 def _run_agent(c: Container, plan: _AgentPlan, emit: Emit | None = None) -> AgentRunResult:
     assert c.agent is not None
-    cost = c.settings.agent_budget_cost
-    if c.budget is not None:
-        c.budget.consume(cost)
+    refund = _charge(c, plan.client, c.settings.agent_budget_cost)
     try:
         result = c.agent.run(
             plan.task, approved=plan.approved, registry=plan.registry, on_event=emit
         )
     except ScragError:
-        if c.budget is not None:
-            c.budget.refund(cost)
+        refund()
         raise
-    if c.budget is not None and result.status != "completed":
-        c.budget.refund(cost)  # nothing was answered (approval pending or failure)
+    if result.status != "completed":
+        refund()  # nothing was answered (approval pending or failure)
     result.usage["estimated_cost_usd"] = estimate_cost(
         result.usage.get("by_model", {}), c.settings.llm_prices
     )

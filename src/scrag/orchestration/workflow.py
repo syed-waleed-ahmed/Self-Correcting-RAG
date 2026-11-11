@@ -105,8 +105,9 @@ class WorkflowLimits:
 _PLANNER_SYSTEM = (
     "You are a planning agent. Break the user's task into at most {max_steps} tool "
     "calls chosen ONLY from the tool catalog below. Use document_search for anything "
-    "that needs knowledge-base facts (one focused query per call) and calculator for "
-    "arithmetic. Do not call a tool that the task does not need. Reply with JSON only: "
+    "that needs knowledge-base facts (one focused query per call), calculator for "
+    "arithmetic, and any other tool only for what its description says. Do not call "
+    "a tool that the task does not need. Reply with JSON only: "
     '{{"steps": [{{"tool": "<name>", "input": {{...}}, "purpose": "<why>"}}]}}\n\n'
     "Tool catalog:\n{catalog}"
 )

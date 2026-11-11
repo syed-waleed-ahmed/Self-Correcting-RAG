@@ -121,9 +121,16 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
 - **Cold starts.** The API sleeps after 15 minutes without traffic, and the
   first request takes about a minute. The UI shows a "waking the server" state.
   Don't add keep-alive pings: they work around the provider's policy.
-- **Quotas.** Live AI queries are capped by `SCRAG_DEMO_DAILY_QUERY_BUDGET`
-  (default 30 per UTC day) and by the per-client rate limit. Sample questions
-  are answered from recorded runs and use no quota.
+- **Quotas.** Live AI queries are capped in layers:
+  - the global `SCRAG_DEMO_DAILY_QUERY_BUDGET` (default 30 per UTC day);
+  - each visitor's share of it, `SCRAG_DEMO_CLIENT_DAILY_RUNS` (default 10;
+    an agent run costs 2);
+  - the per-client rate limit on expensive endpoints;
+  - a coarse per-client flood guard on all requests (health checks exempt).
+
+  Sample questions are answered from recorded runs and use no quota. See the
+  [threat model](threat-model.md) for what each layer protects, and
+  [load-testing.md](load-testing.md) for measurements.
 - **Model availability.** Groq changes its free model list. If queries start
   failing with `llm_error`, check https://console.groq.com/docs/models and set
   `SCRAG_GENERATOR_MODEL`, `SCRAG_EVALUATOR_MODEL` and `SCRAG_GUARDRAIL_MODEL`

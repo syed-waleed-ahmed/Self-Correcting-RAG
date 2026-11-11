@@ -58,6 +58,8 @@ postgres = ["psycopg[binary]>=3.2", "psycopg-pool>=3.2"]
 auth = ["pyjwt[crypto]>=2.8"]
 # OpenTelemetry tracing (off unless SCRAG_OTEL_EXPORTER is set).
 otel = ["opentelemetry-sdk>=1.25", "opentelemetry-exporter-otlp-proto-http>=1.25"]
+# Load testing (loadtests/, docs/load-testing.md). A dev tool: not in "all".
+load = ["locust>=2.37"]
 # Everything.
 all = [
     "fastembed>=0.4",

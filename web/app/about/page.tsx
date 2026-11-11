@@ -48,8 +48,8 @@ export default function AboutPage() {
         </ol>
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
           The <span className="font-medium">Agent</span> tab adds a bounded planner: it picks tools (document search, a
-          safe calculator), runs them in parallel, writes an answer that cites its evidence, and verifies it, within
-          hard limits on steps, LLM calls and time.
+          safe calculator, read-only SQL over a catalog of the knowledge base), runs them in parallel, writes an answer
+          that cites its evidence, and verifies it, within hard limits on steps, LLM calls and time.
         </p>
       </Card>
 

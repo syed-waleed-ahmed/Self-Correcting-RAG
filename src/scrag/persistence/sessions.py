@@ -15,6 +15,7 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+from ..errors import SessionCapacityError
 from .database import Database
 from .records import SessionRecord
 
@@ -27,20 +28,32 @@ def hash_token(token: str) -> bytes:
 
 
 class SessionStore:
-    def __init__(self, db: Database, *, ttl_hours: float) -> None:
+    def __init__(self, db: Database, *, ttl_hours: float, max_live: int | None = None) -> None:
         self.db = db
         self.ttl = timedelta(hours=ttl_hours)
+        self.max_live = max_live
 
     def create(self) -> tuple[SessionRecord, str]:
-        """Create an anonymous session. Returns the record and the token (shown once)."""
+        """Create an anonymous session. Returns the record and the token (shown once).
+
+        Refused with :class:`SessionCapacityError` while ``max_live`` sessions are
+        live: sessions are cheap rows, but an unbounded number of them (from many
+        addresses, each within its rate limit) would still fill a free database.
+        The check and the insert are one statement; under heavy concurrency the
+        cap can be overshot by a few rows, never by an unbounded number.
+        """
         token = TOKEN_PREFIX + secrets.token_urlsafe(32)
         with self.db.connection() as conn:
             row = conn.execute(
                 "INSERT INTO scrag.sessions (id, token_hash, expires_at)"
-                " VALUES (%s, %s, now() + %s)"
+                " SELECT %s, %s, now() + %s"
+                " WHERE %s::int IS NULL"
+                " OR (SELECT count(*) FROM scrag.sessions WHERE expires_at > now()) < %s::int"
                 " RETURNING id, kind, created_at, expires_at",
-                (uuid.uuid4(), hash_token(token), self.ttl),
+                (uuid.uuid4(), hash_token(token), self.ttl, self.max_live, self.max_live),
             ).fetchone()
+        if row is None:
+            raise SessionCapacityError(f"{self.max_live} live sessions")
         return SessionRecord(**row), token
 
     def authenticate(self, token: str | None) -> SessionRecord | None:

@@ -18,19 +18,31 @@ from .agents import EvaluatorAgent, GeneratorAgent, GuardrailAgent
 from .auth import JWTVerifier, build_verifier
 from .chunking import Chunker
 from .config import Settings
-from .demo import AnswerCache, Budget, DailyBudget, RateLimiter, corpus_fingerprint
+from .demo import (
+    AnswerCache,
+    Budget,
+    ClientQuota,
+    DailyBudget,
+    RateLimiter,
+    corpus_fingerprint,
+)
 from .embeddings import Embedder, create_embedder
 from .errors import IngestInProgressError
 from .ingest import IngestStats, ingest
 from .llm.client import ChatClient, OpenAICompatibleClient
 from .logging_config import get_logger
+from .models import Chunk
 from .orchestration import (
     AgentWorkflow,
+    CorpusCatalog,
     ToolRegistry,
+    WebFetcher,
     WorkflowLimits,
     calculator_tool,
     document_search_tool,
     reindex_tool,
+    sql_query_tool,
+    web_fetch_tool,
 )
 from .pipeline import SelfCorrectingRAGPipeline
 from .retriever import HybridRetriever, Retriever
@@ -55,6 +67,7 @@ class Container:
     tools: ToolRegistry | None = None
     answers: AnswerCache | None = None
     rate_limiter: RateLimiter | None = None  # demo mode only
+    client_quota: ClientQuota | None = None  # demo mode only: each client's share of the budget
     budget: Budget | None = None  # demo mode only (persisted when a database is configured)
     persistence: Persistence | None = None  # None when no database is configured
     jwt_verifier: JWTVerifier | None = None  # None unless JWT admin auth is configured
@@ -180,6 +193,25 @@ def build_container(
     tools.register(document_search_tool(lambda q, k: retriever.retrieve(q, k)))
     tools.register(calculator_tool())
 
+    def catalog_snapshot() -> tuple[int, list[Chunk]]:
+        revision, _, chunks = store.versioned_snapshot()
+        return revision, chunks
+
+    tools.register(
+        sql_query_tool(CorpusCatalog(catalog_snapshot), enabled=settings.sql_tool_enabled)
+    )
+    tools.register(
+        web_fetch_tool(
+            WebFetcher(
+                settings.http_tool_allowed_hosts,
+                max_bytes=settings.http_tool_max_bytes,
+                timeout_s=settings.http_tool_timeout_s,
+            )
+            if settings.http_tool_allowed_hosts
+            else None
+        )
+    )
+
     answers = AnswerCache(
         ttl_seconds=settings.answer_cache_ttl_seconds, max_entries=settings.answer_cache_size
     )
@@ -217,6 +249,7 @@ def build_container(
             if settings.demo_mode
             else None
         ),
+        client_quota=(ClientQuota(settings.demo_client_daily_runs) if settings.demo_mode else None),
         budget=budget,
         persistence=persistence,
         jwt_verifier=build_verifier(settings),

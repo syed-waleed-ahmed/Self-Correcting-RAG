@@ -36,7 +36,7 @@ fakes. `.[dev]` alone is enough to run and pass it.
 CI runs the same checks on Python 3.10, 3.11 and 3.12:
 
 ```bash
-python scripts/verify.py        # ruff check, ruff format --check, mypy src scripts, pytest
+python scripts/verify.py        # ruff check, ruff format --check, mypy src scripts loadtests, pytest
 python scripts/verify.py --fix  # apply ruff fixes and formatting first
 ```
 

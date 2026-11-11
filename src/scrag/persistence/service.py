@@ -128,7 +128,9 @@ def build_persistence(
         max_per_session=settings.session_max_documents,
         max_total=settings.persistence_max_documents,
     )
-    sessions = SessionStore(db, ttl_hours=settings.session_ttl_hours)
+    sessions = SessionStore(
+        db, ttl_hours=settings.session_ttl_hours, max_live=settings.persistence_max_sessions
+    )
     worker = JobWorker(
         jobs,
         {INGEST_JOB: ingest_document_handler(documents, embedder, chunker, settings)},

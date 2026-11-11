@@ -6,6 +6,7 @@ import secrets
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
+from starlette.types import Scope
 
 from ..container import Container
 from ..errors import ForbiddenError, PersistenceDisabledError, SessionRequiredError
@@ -86,16 +87,26 @@ def require_operator(request: Request) -> None:
         raise ForbiddenError("operator endpoint called without operator credentials on the demo")
 
 
+def client_address(scope: Scope, header: str | None, hops: int) -> str:
+    """The client IP of an ASGI request, read from a trusted proxy header if configured.
+
+    With a header, the address ``hops`` from the right is used: the one the
+    trusted proxy appended, which clients cannot spoof.
+    """
+    if header:
+        name = header.lower().encode("latin-1")
+        value = next((v.decode("latin-1") for k, v in scope.get("headers", ()) if k == name), "")
+        addresses = [part.strip() for part in value.split(",") if part.strip()]
+        if len(addresses) >= hops:
+            return addresses[-hops]
+    client = scope.get("client")
+    return str(client[0]) if client else "unknown"
+
+
 def client_key(request: Request) -> str:
     """Rate-limit key: the client IP, read from a trusted proxy header if configured."""
     settings = get_container(request).settings
-    header = settings.forwarded_ip_header
-    if header:
-        value = request.headers.get(header, "")
-        hops = [part.strip() for part in value.split(",") if part.strip()]
-        if len(hops) >= settings.forwarded_ip_hops:
-            return hops[-settings.forwarded_ip_hops]
-    return request.client.host if request.client else "unknown"
+    return client_address(request.scope, settings.forwarded_ip_header, settings.forwarded_ip_hops)
 
 
 def rate_limit(request: Request) -> None:

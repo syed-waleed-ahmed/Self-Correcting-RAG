@@ -1,0 +1,129 @@
+name: Load test
+
+# Runs the Locust profiles in loadtests/ against the real deployment image,
+# limited to the CPU and memory of Render's free plan (0.1 CPU, 512 MB), with
+# an LLM stand-in (loadtests/mock_llm.py): never a real provider. Results go to
+# the job summary and an artifact; docs/load-testing.md records them.
+#
+# Manual, plus pull requests that change the load tests or the image.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "loadtests/**"
+      - ".github/workflows/load-test.yml"
+      - "Dockerfile"
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Locust
+        run: pip install "locust>=2.37"
+
+      - name: Build the deployment image
+        run: docker build -t scrag:load .
+
+      - name: Start the LLM stand-in (300 ms per call)
+        run: nohup python loadtests/mock_llm.py --host 127.0.0.1 --port 8090 --latency-ms 300 > mock.log 2>&1 &
+
+      - name: Run the profiles
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          echo "## Load test: deployment image, LLM stand-in at 300 ms per call" >> "$GITHUB_STEP_SUMMARY"
+          # Latency at --cpus 0.1 depends heavily on the runner's CPU, so record it.
+          cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1)
+          echo "Runner: $(nproc) CPUs ($cpu), $(free -g | awk '/Mem:/ {print $2}') GB RAM" >> "$GITHUB_STEP_SUMMARY"
+
+          # Process (anonymous) memory and page cache, from the container's cgroup.
+          # Only anonymous memory counts toward an OOM kill; the cache is reclaimable.
+          memory() {
+            docker exec "$1" python -c 's = dict(l.split() for l in open("/sys/fs/cgroup/memory.stat")); print("process %d MiB, file cache %d MiB" % (int(s["anon"]) >> 20, int(s["file"]) >> 20))'
+          }
+
+          # profile <name> <cpus> <users> <user classes> -- <extra docker args>
+          profile() {
+            local name=$1 cpus=$2 users=$3 classes=$4; shift 5
+            docker run -d --name "$name" --network host --cpus "$cpus" --memory 512m \
+              -e PORT=8000 -e SCRAG_LLM_API_KEY=mock -e SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 \
+              -e SCRAG_LOG_LEVEL=WARNING "$@" scrag:load > /dev/null
+            # A cold 0.1-CPU container loads its model on the first search: allow 5 min.
+            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 --timeout 300 > /dev/null
+            local idle after peak oom
+            idle=$(memory "$name")
+            # shellcheck disable=SC2086
+            locust -f loadtests/locustfile.py --headless -u "$users" -r "$users" -t 2m \
+              --host http://127.0.0.1:8000 --csv "out/$name" --loglevel WARNING --only-summary \
+              $classes > "out/$name.log" 2>&1 || true
+            after=$(memory "$name")
+            peak=$(docker exec "$name" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "")
+            [[ "$peak" =~ ^[0-9]+$ ]] && peak="$((peak / 1048576)) MiB" || peak="n/a"
+            oom=$(docker inspect -f '{{.State.OOMKilled}}' "$name")
+            {
+              echo
+              echo "### $name: $cpus CPU, 512 MB, $users users ($classes $*)"
+              echo "Memory before the run: $idle. After: $after."
+              echo "Peak (cgroup, including cache): $peak. OOM-killed: $oom."
+              echo
+              python loadtests/summarize.py "out/${name}_stats.csv" "out/${name}_failures.csv"
+            } >> "$GITHUB_STEP_SUMMARY"
+            docker rm -f "$name" > /dev/null
+          }
+
+          # ingest_memory <name> -- <extra docker args>: memory before and after a
+          # runtime re-ingest of the sample corpus at 0.1 CPU, the way the job
+          # worker embeds an upload on the demo.
+          ingest_memory() {
+            local name=$1; shift 2
+            docker run -d --name "$name" --network host --cpus 0.1 --memory 512m \
+              -e PORT=8000 -e SCRAG_LOG_LEVEL=WARNING "$@" scrag:load > /dev/null
+            python scripts/smoke.py --base-url http://127.0.0.1:8000 --wake-timeout 240 --timeout 300 > /dev/null
+            local before after peak oom
+            before=$(memory "$name")
+            curl -sf --max-time 600 -X POST http://127.0.0.1:8000/api/v1/ingest \
+              -H 'content-type: application/json' -d '{"reset": true}' > /dev/null
+            after=$(memory "$name")
+            peak=$(docker exec "$name" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "")
+            [[ "$peak" =~ ^[0-9]+$ ]] && peak="$((peak / 1048576)) MiB" || peak="n/a"
+            oom=$(docker inspect -f '{{.State.OOMKilled}}' "$name")
+            echo "| $name | $before | $after | $peak | $oom |" >> "$GITHUB_STEP_SUMMARY"
+            docker rm -f "$name" > /dev/null
+          }
+
+          profile capacity-1cpu 1.0 20 "Visitor" -- -e SCRAG_DEMO_MODE=false
+          profile capacity-free-tier 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false
+          # Same, with ONNX Runtime's default of one thread per core (the image sets
+          # 1): a same-runner comparison for the choice.
+          profile capacity-free-tier-onnx-per-core 0.1 10 "Visitor" -- -e SCRAG_DEMO_MODE=false \
+            -e SCRAG_EMBEDDING_THREADS="$(nproc)"
+          profile abuse-free-tier 0.1 11 "DemoVisitor Flooder" -- \
+            -e SCRAG_DEMO_MODE=true -e SCRAG_DEMO_DAILY_QUERY_BUDGET=100000 \
+            -e SCRAG_FORWARDED_IP_HEADER=x-forwarded-for -e SCRAG_FORWARDED_IP_HOPS=1
+
+          {
+            echo
+            echo "### Runtime ingest at 0.1 CPU, 512 MB (as the demo embeds an upload)"
+            echo "| Run | Before | After the ingest | Peak (cgroup, incl. cache) | OOM-killed |"
+            echo "| --- | --- | --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ingest_memory ingest-batch-32 -- -e SCRAG_EMBEDDING_BATCH_SIZE=32
+          ingest_memory ingest-batch-8-default --
+
+      - name: Upload the raw results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-test-results
+          path: out/
+          retention-days: 30
