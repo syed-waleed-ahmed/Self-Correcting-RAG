@@ -171,7 +171,7 @@ without touching orchestration logic.
 - Typed configuration (pydantic-settings), structured logging (optional JSON)
   with per-request IDs, robust output parsing (decimals, percentages,
   fractions), and a sanitized error contract that never leaks internals.
-- Fully tested: 236 tests run with fakes (no network, no torch) and in CI across
+- Fully tested: 341 tests run with fakes (no network, no torch) and in CI across
   Python 3.10-3.12, plus a job against a real Postgres with pgvector, and lint,
   format and type checks. Dockerfile and
   docker-compose included.

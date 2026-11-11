@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README's feature list gave the old test count.** It said 236 tests
+  while the Development section, and `pytest --collect-only`, give 341.
+
 ## [0.5.0] - 2026-11-11
 
 ### Added
