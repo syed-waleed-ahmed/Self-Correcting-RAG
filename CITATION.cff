@@ -11,7 +11,7 @@ authors:
   - family-names: Ahmed
     given-names: Syed Waleed
 license: MIT
-version: 0.4.0
+version: 0.5.0
 date-released: "2026-11-11"
 repository-code: "https://github.com/syed-waleed-ahmed/Self-Correcting-RAG"
 url: "https://scrag-web.onrender.com"

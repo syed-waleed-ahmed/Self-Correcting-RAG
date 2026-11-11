@@ -171,7 +171,7 @@ without touching orchestration logic.
 - Typed configuration (pydantic-settings), structured logging (optional JSON)
   with per-request IDs, robust output parsing (decimals, percentages,
   fractions), and a sanitized error contract that never leaks internals.
-- Fully tested: 341 tests run with fakes (no network, no torch) and in CI across
+- Fully tested: 347 tests run with fakes (no network, no torch) and in CI across
   Python 3.10-3.12, plus a job against a real Postgres with pgvector, and lint,
   format and type checks. Dockerfile and
   docker-compose included.
@@ -489,7 +489,7 @@ SCRAG_LLM_API_KEY=mock SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 scrag serve &
 locust -f loadtests/locustfile.py --headless -u 20 -r 5 -t 2m --host http://127.0.0.1:8000 Visitor
 ```
 
-The 341 tests run in seconds with no network or API key. Two groups skip
+The 347 tests run in seconds with no network or API key. Two groups skip
 unless their dependency is present, and CI runs both:
 - the 9 FAISS tests need `faiss-cpu`;
 - the 28 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable

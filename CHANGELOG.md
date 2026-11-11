@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The README's feature list gave the old test count.** It said 236 tests
   while the Development section, and `pytest --collect-only`, give 341.
+- **`CITATION.cff` still said 0.4.0**, so GitHub's "Cite this repository" gave
+  the wrong version for 0.5.0. A new test (`tests/test_version.py`) checks that
+  `pyproject.toml`, `scrag.__version__`, `CITATION.cff`, `web/package.json`,
+  its lockfile and the newest CHANGELOG release all agree.
 
 ## [0.5.0] - 2026-11-11
 
