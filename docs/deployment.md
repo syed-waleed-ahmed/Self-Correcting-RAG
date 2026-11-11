@@ -135,10 +135,12 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
   and both web hosts once a day (07:17 UTC), using a recorded sample answer, so
   it spends no live budget. A failed scheduled run makes GitHub email you. Run
   it any time from the Actions tab.
-- **Model availability.** Groq changes its free model list. If queries start
-  failing with `llm_error`, check https://console.groq.com/docs/models and set
-  `SCRAG_GENERATOR_MODEL`, `SCRAG_EVALUATOR_MODEL` and `SCRAG_GUARDRAIL_MODEL`
-  on the Render service.
+- **Model availability.** Groq changes its free model list. A retired or
+  rate-limited model falls back to `SCRAG_LLM_FALLBACK_MODELS` on its own (the
+  logs say `falling back to ...`). To replace it for good, pick a current model
+  at https://console.groq.com/docs/models and set `SCRAG_GENERATOR_MODEL`,
+  `SCRAG_EVALUATOR_MODEL` and `SCRAG_GUARDRAIL_MODEL` on the Render service.
+  If queries fail with `llm_error`, both models are gone: do the same.
 - **Client IP.** Rate limits and quotas key on the visitor's address. Render
   sits behind Cloudflare, so the address comes from `CF-Connecting-IP`
   (`SCRAG_FORWARDED_IP_HEADER=cf-connecting-ip`). Cloudflare sets it to the
@@ -154,6 +156,31 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
   - Render applies a `render.yaml` environment change as a second,
     Blueprint-triggered deploy after the code deploy. Probe after both
     finish.
+
+## Leaving it unattended
+
+The demo is built to run without anyone watching it. This happens on its own:
+- **Deploys.** Every merge to `main` redeploys the API and both web hosts.
+- **Monitoring.** The daily live check (07:17 UTC) emails you if it fails.
+- **Dependency updates.** Dependabot opens grouped update PRs once a month,
+  and security fixes as soon as an advisory is published. CI (including the
+  container's memory check at 512 MB) and CodeQL run on each one, and the load
+  test runs too when the Docker base image changes.
+- **Clean-up.** While the API is awake, its worker deletes expired sessions
+  with their uploads and history, and per-visitor counters from earlier days.
+- **Model changes.** A retired or rate-limited model falls back to the next
+  one (see "Model availability" above).
+
+This needs you:
+
+| When | What to do |
+| --- | --- |
+| A Dependabot PR is green | Merge it. Render redeploys, and the next live check confirms it |
+| A Dependabot PR is red | Open the failing check. It's usually a major version with breaking changes: close the PR, and Dependabot stops proposing that version |
+| The live check emails a failure | Open the run: the smoke output names the failing check. Retired models: set new ones (above). A Render, Neon or Groq outage: re-run the workflow later from the Actions tab |
+| On the 1st of each month | The cost check in `docs/planning/COST_ZERO_VERIFICATION.md`: Render billing (no card, $0), Neon usage, GitHub Actions billing |
+| After 60 days without commits | GitHub pauses scheduled workflows (the live check and CodeQL's weekly scan) in public repositories, and emails you first. Merging update PRs counts as activity. To restart one: Actions, then the workflow (**Live check**), then **Enable workflow** |
+| A key leaks | Rotate `GROQ_API_KEY` in the Groq console and update it on the Render service. A new `SCRAG_CLIENT_KEY_SECRET` only resets today's per-visitor shares |
 
 ## Updating the sample answers
 

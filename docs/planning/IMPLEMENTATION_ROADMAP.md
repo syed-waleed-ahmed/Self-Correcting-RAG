@@ -37,8 +37,8 @@ adopted (see "Decisions taken" below):
 | 6 | Observability and evaluation | **Done** (2026-11-10): metrics, cost per answer, optional tracing, 60-question golden set, answer-quality comparison |
 | 7 | Security hardening, quotas, load tests | **Done** (2026-11-10): threat model, sniffed uploads, read-only SQL and SSRF-safe fetch tools, layered quotas, measured load tests |
 | 8 | Full free-tier deployment | **Live**: Render Free (API and static UI), Neon Free, GitHub Pages mirror; every merge to `main` deploys |
-| 9 | Live demo verification | **Ongoing**: `scripts/smoke.py` (with the Phase 7 checks and `--flood-check`) runs in CI against the image and against the live demo after each deploy; the cost log is in `COST_ZERO_VERIFICATION.md`. Latest, on 0.4.0 (2026-11-11): all 19 checks pass live, the flood guard refused a burst after 69 requests, rate limits key per visitor (3 of 30 rapid searches allowed), every service is at $0 |
-| 10 | GitHub showcase release | **v0.4.0** prepared (Phases 6 and 7); the maintainer tags the release |
+| 9 | Live demo verification | **Ongoing**: `scripts/smoke.py` (with the Phase 7 checks and `--flood-check`) runs in CI against the image and against the live demo after each deploy; the cost log is in `COST_ZERO_VERIFICATION.md`. On 0.4.0 (2026-11-11): all 19 checks pass live, the flood guard refused a burst after 69 requests, rate limits key per visitor (3 of 30 rapid searches allowed), every service is at $0. Latest, before 0.5.0 (2026-11-11): each visitor's share survives a service restart, and the daily live check (`live-check.yml`) passes. What needs the maintainer from here is in `docs/deployment.md`, "Leaving it unattended" |
+| 10 | GitHub showcase release | **v0.4.0** released; **v0.5.0** prepared (fallback models, persistent visitor share, warm-up, daily live check); the maintainer publishes the release |
 
 ## Phase 1: Core reliability (done)
 

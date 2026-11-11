@@ -13,7 +13,7 @@ from .container import Container, build_container
 from .models import Chunk, PipelineResult, RetrievedChunk
 from .pipeline import SelfCorrectingRAGPipeline
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "__version__",

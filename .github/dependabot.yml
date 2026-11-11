@@ -1,11 +1,13 @@
-# Weekly dependency updates. Minor and patch bumps are grouped into one PR per
-# ecosystem to keep the noise down; CI must pass before anything is merged.
+# Monthly dependency updates, so an unattended repository gets a few PRs a month.
+# Minor and patch bumps are grouped into one PR per ecosystem; CI must pass
+# before anything is merged. Security updates don't wait for this schedule:
+# Dependabot opens them as soon as an advisory is published.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
       python-minor-and-patch:
@@ -14,7 +16,7 @@ updates:
   - package-ecosystem: npm
     directory: "/web"
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
       web-minor-and-patch:
@@ -33,7 +35,7 @@ updates:
   - package-ecosystem: docker
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
@@ -41,7 +43,7 @@ updates:
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns: ["*"]

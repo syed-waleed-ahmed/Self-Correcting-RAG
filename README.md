@@ -529,7 +529,9 @@ embedding backends, evaluation data, and UI work.
 
 To run your own copy of the demo, follow
 [docs/deployment.md](docs/deployment.md#deploy-your-own-copy). It takes a
-fork, a free Render account and a free Groq key.
+fork, a free Render account and a free Groq key. What runs on its own after
+that, and what needs a maintainer, is in
+[Leaving it unattended](docs/deployment.md#leaving-it-unattended).
 
 ## License
 

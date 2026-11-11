@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
 ### Added
 
 - **Fallback models** (`SCRAG_LLM_FALLBACK_MODELS`). When a model is rate
@@ -20,6 +22,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Keys are a keyed hash (HMAC-SHA256, `SCRAG_CLIENT_KEY_SECRET`) of the
     address, never the address itself.
   - The rows are deleted after a day, and the About page says so.
+  - Verified live by restarting the service: a visitor with 9 of 10 runs left
+    still had 9 on the new process (a share kept in memory would show 10).
 - **Daily live check** (`.github/workflows/live-check.yml`). Once a day it
   smoke-tests the live API and the web UI on both hosts, using a recorded
   sample answer, so it spends no live budget. A failed scheduled run makes
@@ -37,6 +41,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     under a lock, so a request that arrives meanwhile waits for the same load
     instead of starting a second one.
   - Opt out with `SCRAG_WARM_UP_ON_START=false`.
+- **Dependabot runs monthly instead of weekly**, so an unattended repository
+  gets a few grouped update PRs a month. Security updates still open as soon
+  as an advisory is published.
+- **Maintenance guide** in `docs/deployment.md`: what runs on its own and what
+  needs the maintainer (update PRs, a failed live check, a retired model, the
+  monthly cost check, re-enabling the live check after 60 quiet days).
 
 ### Fixed
 
@@ -497,7 +507,8 @@ deployable package with a REST API and CLI over a shared core.
 - Removed an f-string backslash that raised `SyntaxError` on Python < 3.12; the
   package now runs on Python 3.10+.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.5.0
 [0.4.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.4.0
 [0.3.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.3.0
 
