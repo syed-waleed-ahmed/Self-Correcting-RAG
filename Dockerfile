@@ -8,7 +8,7 @@
 # - ONNX Runtime uses one thread: on a CPU-quota host (Render Free: 0.1 CPU) a
 #   thread per core spends about 4x the CPU per query for the same answer
 #   (docs/load-testing.md).
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
