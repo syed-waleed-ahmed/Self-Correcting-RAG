@@ -20,6 +20,7 @@ from scrag.api import create_app
 from scrag.chunking import Chunker
 from scrag.container import build_container
 from scrag.errors import (
+    ClientQuotaExceededError,
     DemoBudgetExhaustedError,
     NotFoundError,
     SessionCapacityError,
@@ -33,6 +34,7 @@ from scrag.persistence import (
     JobQueue,
     JobWorker,
     PermanentJobError,
+    PersistentClientQuota,
     PersistentDailyBudget,
     apply_migrations,
     build_persistence,
@@ -516,8 +518,15 @@ def test_api_demo_budget_is_persisted(settings, database, sample_chunks):
         remaining = client.get("/api/v1/demo").json()["budget"]["remaining"]
     assert isinstance(container.budget, PersistentDailyBudget)
     with database.connection() as conn:
-        used = conn.execute("SELECT sum(used) AS n FROM scrag.usage_counters").fetchone()["n"]
-    assert used == 1 and remaining == settings.demo_daily_query_budget - 1
+        rows = conn.execute("SELECT subject, used FROM scrag.usage_counters").fetchall()
+    counters = {row["subject"]: row["used"] for row in rows}
+    global_used = counters.pop("demo:live_runs")
+    assert global_used == 1
+    assert remaining == settings.demo_daily_query_budget - 1
+    # The visitor's share was charged too, in Postgres, under a hashed key.
+    assert isinstance(container.client_quota, PersistentClientQuota)
+    assert list(counters.values()) == [1]
+    assert all(subject.startswith("client:") for subject in counters)
 
 
 def test_api_refuses_sessions_past_the_live_cap(settings, database):
@@ -560,3 +569,29 @@ def test_api_agent_can_search_only_the_sessions_uploads(settings, database):
     # The session's tools are read-only: no reindex tool was offered to the planner.
     assert "reindex_documents" not in chat.prompts_for("generator")[0]
     assert anonymous.status_code == 401
+
+
+def test_client_quota_survives_restarts_and_stores_no_address(database):
+    day = [datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)]
+    quota = PersistentClientQuota(database, 2, secret=b"test-key", now=lambda: day[0])
+    quota.consume("203.0.113.9")
+    # A restarted process (the free instance after a sleep) sees the same count.
+    restarted = PersistentClientQuota(database, 2, secret=b"test-key", now=lambda: day[0])
+    restarted.consume("203.0.113.9")
+    with pytest.raises(ClientQuotaExceededError) as info:
+        restarted.consume("203.0.113.9")
+    assert int(info.value.headers["Retry-After"]) == 12 * 3600  # until midnight UTC
+    assert restarted.remaining("198.51.100.1") == 2  # another client is unaffected
+    restarted.refund("203.0.113.9")
+    assert restarted.remaining("203.0.113.9") == 1
+
+    with database.connection() as conn:
+        rows = conn.execute("SELECT subject FROM scrag.usage_counters").fetchall()
+    subjects = [row["subject"] for row in rows]
+    assert subjects == [restarted.subject("203.0.113.9")]
+    assert subjects[0].startswith("client:") and "203.0.113" not in subjects[0]
+    assert PersistentClientQuota(database, 2, secret=b"other").subject("203.0.113.9") != subjects[0]
+
+    day[0] += timedelta(days=2)  # a new day: a fresh share, and old counters are purged
+    assert restarted.remaining("203.0.113.9") == 2
+    assert restarted.purge_old() == 1

@@ -234,6 +234,12 @@ class LLMError(ScragError, RuntimeError):
     public_message = "The language model provider request failed. Please retry."
 
 
+class LLMModelUnavailableError(LLMError):
+    """The provider no longer serves (or doesn't know) the requested model."""
+
+    code = "llm_model_unavailable"
+
+
 class LLMRateLimitError(LLMError):
     """The provider rejected the request for rate-limit or quota reasons."""
 

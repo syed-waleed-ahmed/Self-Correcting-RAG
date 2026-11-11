@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     guardrail_model: str = "qwen/qwen3.8-27b"
     llm_timeout: float = Field(default=30.0, gt=0)
     llm_max_retries: int = Field(default=3, ge=0)
+    # Tried in order when a model is rate limited or no longer served. Free-tier
+    # quotas are per model, so a fallback also adds headroom (render.yaml sets one).
+    llm_fallback_models: list[str] = Field(default_factory=list)
 
     # --- Embeddings -------------------------------------------------------
     # "auto" uses fastembed (ONNX, ~half the memory of torch) when installed,
@@ -168,6 +171,11 @@ class Settings(BaseSettings):
     # so one visitor can't use up the whole demo's budget (an agent run costs
     # agent_budget_cost). In-process, like the rate limiter.
     demo_client_daily_runs: int = Field(default=10, ge=1)
+    # With a database, each client's share is kept in Postgres under a keyed hash
+    # (HMAC-SHA256) of its address, never the address itself. Unset: derived from
+    # api_auth_token; with neither, a random per-process key (shares then reset
+    # whenever the server restarts).
+    client_key_secret: str | None = Field(default=None, repr=False)
     demo_max_query_chars: int = Field(default=300, ge=1)
     # 5, not 3: on the 60-question golden set, hybrid hit@3 misses 2 questions
     # that hit@5 retrieves, and a live comparison showed the pipeline then answers

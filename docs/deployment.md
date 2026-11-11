@@ -131,6 +131,10 @@ example `["https://syed-waleed-ahmed.github.io", "https://<app>.vercel.app"]`.
   Sample questions are answered from recorded runs and use no quota. See the
   [threat model](threat-model.md) for what each layer protects, and
   [load-testing.md](load-testing.md) for measurements.
+- **Monitoring.** `.github/workflows/live-check.yml` smoke-tests the live API
+  and both web hosts once a day (07:17 UTC), using a recorded sample answer, so
+  it spends no live budget. A failed scheduled run makes GitHub email you. Run
+  it any time from the Actions tab.
 - **Model availability.** Groq changes its free model list. If queries start
   failing with `llm_error`, check https://console.groq.com/docs/models and set
   `SCRAG_GENERATOR_MODEL`, `SCRAG_EVALUATOR_MODEL` and `SCRAG_GUARDRAIL_MODEL`

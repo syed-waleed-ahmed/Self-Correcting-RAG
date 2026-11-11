@@ -358,6 +358,7 @@ Highlights:
 | `SCRAG_DEMO_MODE`              | `false`                          | Rate limits, daily budget, query caps, operator-only ingest |
 | `SCRAG_DEMO_DAILY_QUERY_BUDGET`| `30`                             | Live pipeline runs per UTC day (demo)   |
 | `SCRAG_DEMO_CLIENT_DAILY_RUNS` | `10`                             | Each client's share of that budget (demo) |
+| `SCRAG_LLM_FALLBACK_MODELS`    | `[]`                             | Models to try when the main one is rate limited or retired |
 | `SCRAG_GUARDRAIL_THRESHOLD`    | `0.3`                            | Min relevance to keep a chunk           |
 | `SCRAG_GUARDRAIL_MAX_TOKENS`   | `8`                              | Guardrail reply budget (use 256 for reasoning models such as `openai/gpt-oss-20b`) |
 | `SCRAG_EVAL_THRESHOLD`         | `0.7`                            | Min grounding score to accept an answer |
@@ -404,6 +405,11 @@ Highlights:
   `X-Frame-Options: DENY`; secrets never appear in `repr(settings)` or logs.
 - Questions, uploads and answers are sent to the configured LLM provider
   (Groq on the demo). The UI says so.
+- With a database, each visitor's daily share is stored under a keyed hash
+  (HMAC-SHA256) of their address, never the address itself, and deleted after
+  a day. The UI says so.
+- A daily GitHub Actions run (`live-check.yml`) smoke-tests the live demo; a
+  failure emails the maintainer.
 - Sessions: tokens are 256-bit random values stored only as SHA-256 hashes;
   every query is scoped by session, and other sessions' data answers 404.
 - Optional JWT admin auth (e.g. Supabase Auth): algorithms come from the
@@ -483,10 +489,10 @@ SCRAG_LLM_API_KEY=mock SCRAG_LLM_BASE_URL=http://127.0.0.1:8090/v1 scrag serve &
 locust -f loadtests/locustfile.py --headless -u 20 -r 5 -t 2m --host http://127.0.0.1:8000 Visitor
 ```
 
-The 339 tests run in seconds with no network or API key. Two groups skip
+The 341 tests run in seconds with no network or API key. Two groups skip
 unless their dependency is present, and CI runs both:
 - the 9 FAISS tests need `faiss-cpu`;
-- the 27 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
+- the 28 Postgres tests need `TEST_DATABASE_URL` pointing at a disposable
   Postgres with pgvector, e.g.
   `docker run -e POSTGRES_PASSWORD=pg -p 5432:5432 pgvector/pgvector:pg17` and
   `TEST_DATABASE_URL=postgresql://postgres:pg@localhost:5432/postgres`.

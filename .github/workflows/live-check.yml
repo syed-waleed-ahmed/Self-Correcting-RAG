@@ -1,0 +1,45 @@
+name: Live check
+
+# Once a day, smoke-test the public demo: the API (health, demo info, search,
+# validation, the error contract, security headers, the body cap, a recorded
+# sample answer) and the web UI on both hosts. A failed scheduled run makes
+# GitHub email the repository owner, which is the demo's free alerting.
+#
+# It spends no live LLM budget (the sample answer is a recorded run) and wakes
+# the sleeping free instance once a day: monitoring, not keep-alive traffic.
+on:
+  schedule:
+    - cron: "17 7 * * *"  # daily, 07:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: API smoke test (waits for a sleeping instance to wake)
+        run: >-
+          python scripts/smoke.py --base-url https://scrag-api.onrender.com
+          --wake-timeout 240 --timeout 300 --live-query
+
+      - name: Web UI pages on both hosts
+        run: |
+          set -euo pipefail
+          for url in \
+            https://scrag-web.onrender.com/ \
+            https://scrag-web.onrender.com/agent/ \
+            https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/ \
+            https://syed-waleed-ahmed.github.io/Self-Correcting-RAG/documents/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 "$url")
+            echo "$code $url"
+            test "$code" = 200
+          done

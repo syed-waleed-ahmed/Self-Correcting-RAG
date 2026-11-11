@@ -10,6 +10,8 @@ a clear 503.
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import threading
 import time
 from dataclasses import dataclass, field
@@ -23,6 +25,7 @@ from .demo import (
     AnswerCache,
     Budget,
     ClientQuota,
+    ClientShare,
     DailyBudget,
     RateLimiter,
     corpus_fingerprint,
@@ -68,7 +71,8 @@ class Container:
     tools: ToolRegistry | None = None
     answers: AnswerCache | None = None
     rate_limiter: RateLimiter | None = None  # demo mode only
-    client_quota: ClientQuota | None = None  # demo mode only: each client's share of the budget
+    # Demo mode only: each client's share of the budget (in Postgres when configured).
+    client_quota: ClientShare | None = None
     budget: Budget | None = None  # demo mode only (persisted when a database is configured)
     persistence: Persistence | None = None  # None when no database is configured
     jwt_verifier: JWTVerifier | None = None  # None unless JWT admin auth is configured
@@ -147,6 +151,16 @@ class Container:
             self.ingest_lock.release()
 
 
+def _client_key_secret(settings: Settings) -> bytes:
+    """Key for hashing client addresses before they are stored (never stored raw)."""
+    if settings.client_key_secret:
+        return settings.client_key_secret.encode("utf-8")
+    if settings.api_auth_token:  # stable across restarts, and already secret
+        return hashlib.sha256(b"scrag-client-key:" + settings.api_auth_token.encode()).digest()
+    logger.warning("No SCRAG_CLIENT_KEY_SECRET: per-client shares reset on restart")
+    return secrets.token_bytes(32)
+
+
 def build_retriever(
     settings: Settings, embedder: Embedder, store: VectorStore, mode: str | None = None
 ) -> Retriever:
@@ -188,6 +202,7 @@ def build_container(
             base_url=settings.llm_base_url,
             timeout=settings.llm_timeout,
             max_retries=settings.llm_max_retries,
+            fallback_models=settings.llm_fallback_models,
         )
     if client is not None:
         pipeline = SelfCorrectingRAGPipeline(
@@ -244,16 +259,21 @@ def build_container(
 
     persistence: Persistence | None = None
     budget: Budget | None = None
+    client_quota: ClientShare | None = None
     if database is not None or settings.has_persistence:
-        from .persistence import PersistentDailyBudget, build_persistence
+        from .persistence import PersistentClientQuota, PersistentDailyBudget, build_persistence
 
         persistence = build_persistence(
             settings, embedder=embedder, chunker=chunker, database=database
         )
-        if settings.demo_mode:  # shared by every instance through Postgres
+        if settings.demo_mode:  # shared by every instance, and kept across restarts
             budget = PersistentDailyBudget(persistence.db, settings.demo_daily_query_budget)
+            client_quota = PersistentClientQuota(
+                persistence.db, settings.demo_client_daily_runs, secret=_client_key_secret(settings)
+            )
     elif settings.demo_mode:
         budget = DailyBudget(settings.demo_daily_query_budget)
+        client_quota = ClientQuota(settings.demo_client_daily_runs)
 
     container = Container(
         settings=settings,
@@ -269,7 +289,7 @@ def build_container(
             if settings.demo_mode
             else None
         ),
-        client_quota=(ClientQuota(settings.demo_client_daily_runs) if settings.demo_mode else None),
+        client_quota=client_quota,
         budget=budget,
         persistence=persistence,
         jwt_verifier=build_verifier(settings),

@@ -121,12 +121,19 @@ export default function AboutPage() {
             <li>API: FastAPI in Docker on Render Free (512 MB, sleeps when idle; the first request wakes it).</li>
             <li>Database: Neon Free Postgres with pgvector, for sessions, uploads, history and jobs.</li>
             <li>Web UI: a static export on a CDN. No secrets in the browser.</li>
-            <li>LLM: Groq&apos;s free tier, protected by per-visitor rate limits and a daily budget.</li>
+            <li>
+              LLM: Groq&apos;s free tier, protected by per-visitor rate limits and a daily budget, with a second
+              free model as a fallback if the first is rate limited or retired.
+            </li>
           </ul>
         </Card>
         <Card title="Privacy and limits">
           <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-600 dark:text-slate-300">
             <li>No accounts and no tracking cookies. A session is an anonymous token kept in your browser.</li>
+            <li>
+              To share the daily AI budget fairly, a keyed hash of your IP address (never the address itself) is
+              kept with today&apos;s count and deleted after a day.
+            </li>
             <li>Sessions, uploads and history are deleted after 24 hours, or at once with “Delete all my data”.</li>
             <li>Only extracted text is stored, and other sessions can never read it.</li>
             <li>Questions and document text are sent to the LLM provider: don&apos;t use personal data.</li>
