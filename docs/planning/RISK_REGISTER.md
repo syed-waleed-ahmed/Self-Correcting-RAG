@@ -1,6 +1,6 @@
 # Risk Register
 
-Last reviewed: 2026-11-10.
+Last reviewed: 2026-11-11.
 - Likelihood and impact are each rated L (low), M (medium) or H (high).
 - Status: Open, Mitigated (controls in place) or Accepted (risk taken knowingly).
 
@@ -18,6 +18,7 @@ Last reviewed: 2026-11-10.
 | R8 | Render's 750 h/month or 5 GB bandwidth runs out and free services are suspended until month end | L | M | One instance-hour service (the static site uses none); monitor usage. On 2026-11-11: 236.85 of 750 instance hours, 6 MB of 5 GB bandwidth, 14 of 500 pipeline minutes. Even an API awake all month uses 720 h | Monitored |
 | R9 | Vercel Hobby forbids commercial use | L | M | Keep the demo non-commercial (no ads, no paid work through it) | Accepted |
 | R10 | Cold start (~1 minute on Render) makes the demo look broken | H | M | Implemented: the UI polls `/health` and shows a "waking the server" state; the model and index are baked into the image so startup needs no download; no keep-alive | Mitigated |
+| R29 | Left unattended, the demo breaks and nobody notices: GitHub pauses scheduled workflows (the live check) after 60 days without commits | M | M | The daily live check emails on failure; GitHub emails before pausing it, and merging the monthly Dependabot PRs counts as activity; models fall back on their own (R4). Every maintainer task is listed in `docs/deployment.md`, "Leaving it unattended". No artificial commits to keep it running | Accepted |
 
 ## Product and quality
 
