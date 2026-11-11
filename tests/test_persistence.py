@@ -518,8 +518,14 @@ def test_api_demo_budget_is_persisted(settings, database, sample_chunks):
         remaining = client.get("/api/v1/demo").json()["budget"]["remaining"]
     assert isinstance(container.budget, PersistentDailyBudget)
     with database.connection() as conn:
-        used = conn.execute("SELECT sum(used) AS n FROM scrag.usage_counters").fetchone()["n"]
-    assert used == 1 and remaining == settings.demo_daily_query_budget - 1
+        rows = conn.execute("SELECT subject, used FROM scrag.usage_counters").fetchall()
+    counters = {row["subject"]: row["used"] for row in rows}
+    assert counters.pop("demo:live_runs") == 1
+    assert remaining == settings.demo_daily_query_budget - 1
+    # The visitor's share was charged too, in Postgres, under a hashed key.
+    assert isinstance(container.client_quota, PersistentClientQuota)
+    assert list(counters.values()) == [1]
+    assert all(subject.startswith("client:") for subject in counters)
 
 
 def test_api_refuses_sessions_past_the_live_cap(settings, database):
