@@ -6,9 +6,14 @@ Usage:
     python scripts/smoke.py --base-url https://scrag-api.onrender.com --live-query
 
 Waits for a sleeping free-tier instance to wake up (up to --wake-timeout seconds),
-then checks health, the demo info, retrieval, validation and the error contract.
+then checks health, the demo info, retrieval, validation, the error contract and
+the Phase 7 hardening (security headers, the body cap, each visitor's reported
+share of the budget, the read-only SQL tool).
 ``--live-query`` additionally runs one sample question through /query (a
-recorded sample answer is fine; it must not be an error). Exit code 0 = all passed.
+recorded sample answer is fine; it must not be an error). ``--flood-check``
+(demo mode) sends a burst of up to 150 requests and checks that the flood guard
+refuses it while health stays open; it runs last, because it leaves this client
+rate limited for about half a minute. Exit code 0 = all passed.
 Stdlib only, so it runs anywhere without installing the package.
 """
 
@@ -51,6 +56,7 @@ def main() -> int:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--wake-timeout", type=float, default=180.0)
     parser.add_argument("--live-query", action="store_true")
+    parser.add_argument("--flood-check", action="store_true", help="demo mode only; runs last")
     parser.add_argument(
         "--timeout", type=float, default=OPTIONS["timeout_s"], help="seconds per request"
     )
@@ -82,10 +88,41 @@ def main() -> int:
         return 1
     check("bundled index is loaded", health.get("index_size", 0) > 0, health)
     check("X-Request-ID header present", any(k.lower() == "x-request-id" for k in headers))
+    lower = {k.lower(): v for k, v in headers.items()}
+    check(
+        "security headers on API responses",
+        lower.get("x-content-type-options") == "nosniff"
+        and lower.get("cache-control") == "no-store"
+        and lower.get("content-security-policy", "").startswith("default-src 'none'"),
+        lower,
+    )
 
     status, demo, _ = call(base, "GET", "/api/v1/demo")
     check("demo info is 200", status == 200, status)
     samples = (demo or {}).get("sample_questions", [])
+    if health.get("demo_mode"):
+        budget = (demo or {}).get("budget") or {}
+        limits = (demo or {}).get("limits") or {}
+        check(
+            "each visitor's daily share is reported",
+            "client_remaining" in budget and "client_daily_runs" in limits,
+            {"budget": budget, "limits": limits},
+        )
+
+    status, tools, _ = call(base, "GET", "/api/v1/agent/tools")
+    names = {t.get("name"): t for t in tools} if isinstance(tools, list) else {}
+    check(
+        "agent tools include read-only SQL",
+        status == 200 and names.get("sql_query", {}).get("enabled") is True,
+        sorted(names),
+    )
+
+    status, body, _ = call(base, "POST", "/api/v1/search", {"query": "x" * 70_000})
+    check(
+        "oversized request body is 413",
+        status == 413 and isinstance(body, dict) and body.get("error") == "payload_too_large",
+        status,
+    )
 
     status, found, _ = call(base, "POST", "/api/v1/search", {"query": "hybrid search RRF"})
     check("search is 200", status == 200, found)
@@ -120,6 +157,25 @@ def main() -> int:
                 f"      status={body.get('evaluation_status')} cached={body.get('cached')} "
                 f"attempts={body.get('attempts')}"
             )
+
+    if args.flood_check and health.get("demo_mode"):
+        refused: tuple[int, Any] | None = None
+        for i in range(150):
+            status, body, _ = call(base, "GET", "/api/v1/demo")
+            if status == 429:
+                refused = (i + 1, body)
+                break
+        check(
+            "flood guard refuses a burst",
+            refused is not None
+            and isinstance(refused[1], dict)
+            and refused[1].get("error") == "rate_limited",
+            refused,
+        )
+        if refused is not None:
+            print(f"      refused after {refused[0]} rapid requests")
+        status, _, _ = call(base, "GET", "/api/v1/health")
+        check("health stays open during a flood", status == 200, status)
 
     print(f"\n{'ALL PASSED' if not failures else f'{len(failures)} FAILED'}")
     return 0 if not failures else 1
