@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-26
+
 ### Added
 
 - **How sure the hybrid-retrieval gain is.** `scripts/paired_bootstrap.py`
@@ -528,7 +530,8 @@ deployable package with a REST API and CLI over a shared core.
 - Removed an f-string backslash that raised `SyntaxError` on Python < 3.12; the
   package now runs on Python 3.10+.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.5.0
 [0.4.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.4.0
 [0.3.0]: https://github.com/syed-waleed-ahmed/Self-Correcting-RAG/releases/tag/v0.3.0
