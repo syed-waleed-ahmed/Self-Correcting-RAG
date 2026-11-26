@@ -1,0 +1,2341 @@
+{
+  "golden": "data/eval/golden.jsonl",
+  "index_size": 29,
+  "retrieval_dense": {
+    "mode": "dense",
+    "k": 5,
+    "questions": 60,
+    "recall_at_k": 0.9667,
+    "hit_rate_at_k": 0.9833,
+    "mrr": 0.9431,
+    "ndcg_at_k": 0.939,
+    "mean_latency_ms": 9.15,
+    "by_kind": {
+      "lexical": {
+        "questions": 25,
+        "recall_at_k": 0.96,
+        "hit_rate_at_k": 0.96,
+        "mrr": 0.8833,
+        "ndcg_at_k": 0.9025
+      },
+      "semantic": {
+        "questions": 35,
+        "recall_at_k": 0.9714,
+        "hit_rate_at_k": 1.0,
+        "mrr": 0.9857,
+        "ndcg_at_k": 0.9651
+      }
+    },
+    "per_question": [
+      {
+        "id": "q01",
+        "kind": "semantic",
+        "question": "What is retrieval-augmented generation?",
+        "retrieved_sources": [
+          "doc1.txt",
+          "hallucination.md",
+          "reranking.md",
+          "scrag-architecture.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "doc1.txt"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 11.68
+      },
+      {
+        "id": "q02",
+        "kind": "semantic",
+        "question": "What does a guardrail agent do with retrieved passages?",
+        "retrieved_sources": [
+          "doc2.txt",
+          "reranking.md",
+          "scrag-architecture.md",
+          "doc3.txt",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "doc2.txt",
+          "reranking.md",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.66
+      },
+      {
+        "id": "q03",
+        "kind": "semantic",
+        "question": "When does the pipeline trigger self-correction?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "scrag-architecture.md",
+          "hallucination.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.69
+      },
+      {
+        "id": "q04",
+        "kind": "semantic",
+        "question": "Why can self-correction never return a worse answer than an earlier attempt?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "scrag-architecture.md",
+          "hallucination.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.3
+      },
+      {
+        "id": "q05",
+        "kind": "lexical",
+        "question": "What is the default chunk size and overlap?",
+        "retrieved_sources": [
+          "chunking.md",
+          "hybrid-search-rrf.md",
+          "vector-search.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.45
+      },
+      {
+        "id": "q06",
+        "kind": "semantic",
+        "question": "Why are long documents split into smaller passages before indexing?",
+        "retrieved_sources": [
+          "chunking.md",
+          "vector-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.15
+      },
+      {
+        "id": "q07",
+        "kind": "lexical",
+        "question": "How many dimensions do all-MiniLM-L6-v2 vectors have?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "vector-search.md",
+          "bm25-keyword-search.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.61
+      },
+      {
+        "id": "q08",
+        "kind": "semantic",
+        "question": "Why does the ONNX embedding backend matter on a 512 MB instance?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "free-tier-deployment.md",
+          "reranking.md",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md",
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.72
+      },
+      {
+        "id": "q09",
+        "kind": "semantic",
+        "question": "What happens if the configured embedding dimension does not match the model?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "scrag-architecture.md",
+          "bm25-keyword-search.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.8
+      },
+      {
+        "id": "q10",
+        "kind": "semantic",
+        "question": "What kinds of terms do embedding models tend to miss?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "reranking.md",
+          "scrag-architecture.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md",
+          "embeddings.md"
+        ],
+        "recall": 0.5,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.6131471927654584,
+        "latency_ms": 7.78
+      },
+      {
+        "id": "q11",
+        "kind": "semantic",
+        "question": "Why is the inner product equal to cosine similarity in the vector store?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "embeddings.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.04
+      },
+      {
+        "id": "q12",
+        "kind": "lexical",
+        "question": "Which NumPy function selects the best matches in exact search?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "hybrid-search-rrf.md",
+          "reranking.md",
+          "bm25-keyword-search.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.14
+      },
+      {
+        "id": "q13",
+        "kind": "lexical",
+        "question": "What is the CURRENT file used for in index persistence?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "scrag-api.md",
+          "chunking.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.21
+      },
+      {
+        "id": "q14",
+        "kind": "lexical",
+        "question": "Which approximate nearest neighbour structures can replace a flat index?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "reranking.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.05
+      },
+      {
+        "id": "q15",
+        "kind": "lexical",
+        "question": "What does the k1 parameter control in BM25?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "hybrid-search-rrf.md",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 6.65
+      },
+      {
+        "id": "q16",
+        "kind": "lexical",
+        "question": "What happens to length normalization when b is set to 0?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "chunking.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.41
+      },
+      {
+        "id": "q17",
+        "kind": "semantic",
+        "question": "Why do rare query terms count for more in keyword ranking?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "reranking.md",
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.6
+      },
+      {
+        "id": "q18",
+        "kind": "semantic",
+        "question": "Why is it hard to merge cosine similarities with BM25 scores directly?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "hybrid-search-rrf.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.5,
+        "ndcg": 0.6309297535714575,
+        "latency_ms": 9.16
+      },
+      {
+        "id": "q19",
+        "kind": "lexical",
+        "question": "What constant is commonly used in Reciprocal Rank Fusion?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.84
+      },
+      {
+        "id": "q20",
+        "kind": "lexical",
+        "question": "Who wrote the original RRF paper?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "doc1.txt",
+          "vector-search.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.98
+      },
+      {
+        "id": "q21",
+        "kind": "semantic",
+        "question": "How does a cross-encoder differ from comparing two separate embeddings?",
+        "retrieved_sources": [
+          "reranking.md",
+          "embeddings.md",
+          "scrag-architecture.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.89
+      },
+      {
+        "id": "q22",
+        "kind": "semantic",
+        "question": "Why is reranking only applied to a short list of candidates?",
+        "retrieved_sources": [
+          "reranking.md",
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "vector-search.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.89
+      },
+      {
+        "id": "q23",
+        "kind": "semantic",
+        "question": "How does the guardrail save requests against provider rate limits?",
+        "retrieved_sources": [
+          "reranking.md",
+          "doc2.txt",
+          "scrag-api.md",
+          "hybrid-search-rrf.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.61
+      },
+      {
+        "id": "q24",
+        "kind": "semantic",
+        "question": "What are common causes of hallucinations in RAG systems?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc1.txt",
+          "prompt-injection.md",
+          "scrag-api.md",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.12
+      },
+      {
+        "id": "q25",
+        "kind": "semantic",
+        "question": "Does a high evaluator score prove that an answer is correct?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc3.txt",
+          "llm-as-judge.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md",
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.9197207891481876,
+        "latency_ms": 7.71
+      },
+      {
+        "id": "q26",
+        "kind": "lexical",
+        "question": "What is self-preference bias?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "doc3.txt",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.3333333333333333,
+        "ndcg": 0.5,
+        "latency_ms": 8.13
+      },
+      {
+        "id": "q27",
+        "kind": "semantic",
+        "question": "Why should a judge model run at temperature 0?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "doc3.txt",
+          "scrag-api.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.5
+      },
+      {
+        "id": "q28",
+        "kind": "semantic",
+        "question": "How should a missing judgement be recorded?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "evaluation-metrics.md",
+          "hallucination.md",
+          "prompt-injection.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md",
+          "scrag-architecture.md"
+        ],
+        "recall": 0.5,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.6131471927654584,
+        "latency_ms": 7.11
+      },
+      {
+        "id": "q29",
+        "kind": "semantic",
+        "question": "In which score formats may a judge write its grade?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "evaluation-metrics.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 6.58
+      },
+      {
+        "id": "q30",
+        "kind": "semantic",
+        "question": "How can a malicious instruction reach the model without the user typing it?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "hallucination.md",
+          "scrag-api.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 11.53
+      },
+      {
+        "id": "q31",
+        "kind": "semantic",
+        "question": "Which defenses reduce the damage of a successful prompt injection?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "scrag-api.md",
+          "doc2.txt",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.37
+      },
+      {
+        "id": "q32",
+        "kind": "lexical",
+        "question": "What does Mean Reciprocal Rank measure?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.34
+      },
+      {
+        "id": "q33",
+        "kind": "lexical",
+        "question": "How does nDCG reward relevant results?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "reranking.md",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.07
+      },
+      {
+        "id": "q34",
+        "kind": "lexical",
+        "question": "What is the difference between recall at k and hit rate at k?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "bm25-keyword-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.45
+      },
+      {
+        "id": "q35",
+        "kind": "lexical",
+        "question": "What relevance threshold does the guardrail use by default?",
+        "retrieved_sources": [
+          "doc2.txt",
+          "reranking.md",
+          "hybrid-search-rrf.md",
+          "llm-as-judge.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "scrag-architecture.md"
+        ],
+        "recall": 0.0,
+        "hit": 0.0,
+        "rr": 0.0,
+        "ndcg": 0.0,
+        "latency_ms": 8.53
+      },
+      {
+        "id": "q36",
+        "kind": "lexical",
+        "question": "Which language model does SCRAG use by default?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "embeddings.md",
+          "chunking.md",
+          "scrag-architecture.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.25,
+        "ndcg": 0.43067655807339306,
+        "latency_ms": 8.28
+      },
+      {
+        "id": "q37",
+        "kind": "lexical",
+        "question": "What fields does an API error response contain?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "doc3.txt",
+          "hallucination.md",
+          "prompt-injection.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.41
+      },
+      {
+        "id": "q38",
+        "kind": "lexical",
+        "question": "Which endpoint runs retrieval without calling a language model?",
+        "retrieved_sources": [
+          "scrag-architecture.md",
+          "scrag-api.md",
+          "reranking.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.5,
+        "ndcg": 0.6309297535714575,
+        "latency_ms": 8.13
+      },
+      {
+        "id": "q39",
+        "kind": "lexical",
+        "question": "What error code is returned after the demo's daily budget is spent?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "free-tier-deployment.md",
+          "scrag-architecture.md",
+          "prompt-injection.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.73
+      },
+      {
+        "id": "q40",
+        "kind": "semantic",
+        "question": "Why is the sample knowledge base built into the container image?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "hallucination.md",
+          "hybrid-search-rrf.md",
+          "chunking.md",
+          "embeddings.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.8
+      },
+      {
+        "id": "q41",
+        "kind": "lexical",
+        "question": "What does each SCRAG chunk record about its source document?",
+        "retrieved_sources": [
+          "chunking.md",
+          "scrag-architecture.md",
+          "scrag-api.md",
+          "vector-search.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.39
+      },
+      {
+        "id": "q42",
+        "kind": "semantic",
+        "question": "When does the chunker fall back to hard character cuts?",
+        "retrieved_sources": [
+          "chunking.md",
+          "scrag-architecture.md",
+          "reranking.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 11.31
+      },
+      {
+        "id": "q43",
+        "kind": "semantic",
+        "question": "What is the trade-off between small and large chunks?",
+        "retrieved_sources": [
+          "chunking.md",
+          "vector-search.md",
+          "reranking.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 6.97
+      },
+      {
+        "id": "q44",
+        "kind": "semantic",
+        "question": "What alternative to fixed-length chunking groups sentences by topic?",
+        "retrieved_sources": [
+          "chunking.md",
+          "embeddings.md",
+          "scrag-architecture.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.79
+      },
+      {
+        "id": "q45",
+        "kind": "lexical",
+        "question": "How much memory does the free API instance have?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "scrag-api.md",
+          "scrag-architecture.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.16
+      },
+      {
+        "id": "q46",
+        "kind": "semantic",
+        "question": "How long does a sleeping free instance take to wake up?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "reranking.md",
+          "scrag-architecture.md",
+          "embeddings.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 6.76
+      },
+      {
+        "id": "q47",
+        "kind": "semantic",
+        "question": "Why does the demo answer its sample questions from recorded results?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "doc3.txt",
+          "evaluation-metrics.md",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.77
+      },
+      {
+        "id": "q48",
+        "kind": "semantic",
+        "question": "What happens to uploads and history when the free database is paused?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "vector-search.md",
+          "prompt-injection.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.37
+      },
+      {
+        "id": "q49",
+        "kind": "semantic",
+        "question": "What does grounding mean in retrieval-augmented generation?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc1.txt",
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.15
+      },
+      {
+        "id": "q50",
+        "kind": "semantic",
+        "question": "What should the model say when the context does not contain the answer?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "scrag-architecture.md",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.18
+      },
+      {
+        "id": "q51",
+        "kind": "semantic",
+        "question": "How should retrieved passages and tool outputs be treated to resist prompt injection?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "doc3.txt",
+          "hallucination.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 16.4
+      },
+      {
+        "id": "q52",
+        "kind": "semantic",
+        "question": "What precautions should a public demo take with uploaded files?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "free-tier-deployment.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 15.96
+      },
+      {
+        "id": "q53",
+        "kind": "semantic",
+        "question": "What does faithfulness measure in answer evaluation?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hallucination.md",
+          "doc3.txt",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 14.97
+      },
+      {
+        "id": "q54",
+        "kind": "semantic",
+        "question": "What does answer relevance ask?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hallucination.md",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.86
+      },
+      {
+        "id": "q55",
+        "kind": "lexical",
+        "question": "What is a golden dataset in retrieval evaluation?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "reranking.md",
+          "doc1.txt",
+          "vector-search.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.31
+      },
+      {
+        "id": "q56",
+        "kind": "lexical",
+        "question": "What are the main tuning knobs of Reciprocal Rank Fusion?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.45
+      },
+      {
+        "id": "q57",
+        "kind": "lexical",
+        "question": "Which response header carries the request identifier?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "prompt-injection.md",
+          "scrag-architecture.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.33
+      },
+      {
+        "id": "q58",
+        "kind": "lexical",
+        "question": "Which HTTP status does a rate-limited request receive?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "reranking.md",
+          "evaluation-metrics.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.84
+      },
+      {
+        "id": "q59",
+        "kind": "lexical",
+        "question": "Under which path prefix is the versioned API served?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "scrag-architecture.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.32
+      },
+      {
+        "id": "q60",
+        "kind": "semantic",
+        "question": "What does the evaluator agent return?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "hallucination.md",
+          "scrag-architecture.md",
+          "doc2.txt"
+        ],
+        "relevant_sources": [
+          "doc3.txt"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.36
+      }
+    ]
+  },
+  "retrieval_hybrid": {
+    "mode": "hybrid",
+    "k": 5,
+    "questions": 60,
+    "recall_at_k": 0.9917,
+    "hit_rate_at_k": 1.0,
+    "mrr": 0.9658,
+    "ndcg_at_k": 0.965,
+    "mean_latency_ms": 9.52,
+    "by_kind": {
+      "lexical": {
+        "questions": 25,
+        "recall_at_k": 1.0,
+        "hit_rate_at_k": 1.0,
+        "mrr": 0.938,
+        "ndcg_at_k": 0.9527
+      },
+      "semantic": {
+        "questions": 35,
+        "recall_at_k": 0.9857,
+        "hit_rate_at_k": 1.0,
+        "mrr": 0.9857,
+        "ndcg_at_k": 0.9738
+      }
+    },
+    "per_question": [
+      {
+        "id": "q01",
+        "kind": "semantic",
+        "question": "What is retrieval-augmented generation?",
+        "retrieved_sources": [
+          "doc1.txt",
+          "hallucination.md",
+          "scrag-architecture.md",
+          "reranking.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "doc1.txt"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 12.6
+      },
+      {
+        "id": "q02",
+        "kind": "semantic",
+        "question": "What does a guardrail agent do with retrieved passages?",
+        "retrieved_sources": [
+          "doc2.txt",
+          "reranking.md",
+          "scrag-architecture.md",
+          "doc3.txt",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "doc2.txt",
+          "reranking.md",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.99
+      },
+      {
+        "id": "q03",
+        "kind": "semantic",
+        "question": "When does the pipeline trigger self-correction?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "scrag-architecture.md",
+          "scrag-api.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.42
+      },
+      {
+        "id": "q04",
+        "kind": "semantic",
+        "question": "Why can self-correction never return a worse answer than an earlier attempt?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "scrag-architecture.md",
+          "hallucination.md",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.79
+      },
+      {
+        "id": "q05",
+        "kind": "lexical",
+        "question": "What is the default chunk size and overlap?",
+        "retrieved_sources": [
+          "chunking.md",
+          "hybrid-search-rrf.md",
+          "vector-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.69
+      },
+      {
+        "id": "q06",
+        "kind": "semantic",
+        "question": "Why are long documents split into smaller passages before indexing?",
+        "retrieved_sources": [
+          "chunking.md",
+          "bm25-keyword-search.md",
+          "reranking.md",
+          "doc1.txt",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.27
+      },
+      {
+        "id": "q07",
+        "kind": "lexical",
+        "question": "How many dimensions do all-MiniLM-L6-v2 vectors have?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "vector-search.md",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.52
+      },
+      {
+        "id": "q08",
+        "kind": "semantic",
+        "question": "Why does the ONNX embedding backend matter on a 512 MB instance?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "free-tier-deployment.md",
+          "vector-search.md",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md",
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.9
+      },
+      {
+        "id": "q09",
+        "kind": "semantic",
+        "question": "What happens if the configured embedding dimension does not match the model?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "bm25-keyword-search.md",
+          "scrag-architecture.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "embeddings.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.48
+      },
+      {
+        "id": "q10",
+        "kind": "semantic",
+        "question": "What kinds of terms do embedding models tend to miss?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "hallucination.md",
+          "bm25-keyword-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md",
+          "embeddings.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.9197207891481876,
+        "latency_ms": 9.36
+      },
+      {
+        "id": "q11",
+        "kind": "semantic",
+        "question": "Why is the inner product equal to cosine similarity in the vector store?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "embeddings.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.48
+      },
+      {
+        "id": "q12",
+        "kind": "lexical",
+        "question": "Which NumPy function selects the best matches in exact search?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "bm25-keyword-search.md",
+          "hybrid-search-rrf.md",
+          "embeddings.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.51
+      },
+      {
+        "id": "q13",
+        "kind": "lexical",
+        "question": "What is the CURRENT file used for in index persistence?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "chunking.md",
+          "scrag-api.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.06
+      },
+      {
+        "id": "q14",
+        "kind": "lexical",
+        "question": "Which approximate nearest neighbour structures can replace a flat index?",
+        "retrieved_sources": [
+          "vector-search.md",
+          "embeddings.md",
+          "bm25-keyword-search.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "vector-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.86
+      },
+      {
+        "id": "q15",
+        "kind": "lexical",
+        "question": "What does the k1 parameter control in BM25?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "hybrid-search-rrf.md",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.69
+      },
+      {
+        "id": "q16",
+        "kind": "lexical",
+        "question": "What happens to length normalization when b is set to 0?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "chunking.md",
+          "embeddings.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.71
+      },
+      {
+        "id": "q17",
+        "kind": "semantic",
+        "question": "Why do rare query terms count for more in keyword ranking?",
+        "retrieved_sources": [
+          "bm25-keyword-search.md",
+          "reranking.md",
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "bm25-keyword-search.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.55
+      },
+      {
+        "id": "q18",
+        "kind": "semantic",
+        "question": "Why is it hard to merge cosine similarities with BM25 scores directly?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "bm25-keyword-search.md",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.78
+      },
+      {
+        "id": "q19",
+        "kind": "lexical",
+        "question": "What constant is commonly used in Reciprocal Rank Fusion?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.1
+      },
+      {
+        "id": "q20",
+        "kind": "lexical",
+        "question": "Who wrote the original RRF paper?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "doc1.txt",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.18
+      },
+      {
+        "id": "q21",
+        "kind": "semantic",
+        "question": "How does a cross-encoder differ from comparing two separate embeddings?",
+        "retrieved_sources": [
+          "reranking.md",
+          "embeddings.md",
+          "vector-search.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 7.65
+      },
+      {
+        "id": "q22",
+        "kind": "semantic",
+        "question": "Why is reranking only applied to a short list of candidates?",
+        "retrieved_sources": [
+          "reranking.md",
+          "hybrid-search-rrf.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.15
+      },
+      {
+        "id": "q23",
+        "kind": "semantic",
+        "question": "How does the guardrail save requests against provider rate limits?",
+        "retrieved_sources": [
+          "reranking.md",
+          "scrag-api.md",
+          "doc2.txt",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "reranking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.87
+      },
+      {
+        "id": "q24",
+        "kind": "semantic",
+        "question": "What are common causes of hallucinations in RAG systems?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc1.txt",
+          "prompt-injection.md",
+          "chunking.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.79
+      },
+      {
+        "id": "q25",
+        "kind": "semantic",
+        "question": "Does a high evaluator score prove that an answer is correct?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc3.txt",
+          "llm-as-judge.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md",
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.9197207891481876,
+        "latency_ms": 8.92
+      },
+      {
+        "id": "q26",
+        "kind": "lexical",
+        "question": "What is self-preference bias?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.64
+      },
+      {
+        "id": "q27",
+        "kind": "semantic",
+        "question": "Why should a judge model run at temperature 0?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "doc3.txt",
+          "reranking.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.34
+      },
+      {
+        "id": "q28",
+        "kind": "semantic",
+        "question": "How should a missing judgement be recorded?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "hallucination.md",
+          "free-tier-deployment.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md",
+          "scrag-architecture.md"
+        ],
+        "recall": 0.5,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 0.6131471927654584,
+        "latency_ms": 7.11
+      },
+      {
+        "id": "q29",
+        "kind": "semantic",
+        "question": "In which score formats may a judge write its grade?",
+        "retrieved_sources": [
+          "llm-as-judge.md",
+          "doc3.txt",
+          "hallucination.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "llm-as-judge.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.56
+      },
+      {
+        "id": "q30",
+        "kind": "semantic",
+        "question": "How can a malicious instruction reach the model without the user typing it?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "scrag-api.md",
+          "embeddings.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.54
+      },
+      {
+        "id": "q31",
+        "kind": "semantic",
+        "question": "Which defenses reduce the damage of a successful prompt injection?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "hallucination.md",
+          "llm-as-judge.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 11.31
+      },
+      {
+        "id": "q32",
+        "kind": "lexical",
+        "question": "What does Mean Reciprocal Rank measure?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.39
+      },
+      {
+        "id": "q33",
+        "kind": "lexical",
+        "question": "How does nDCG reward relevant results?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "reranking.md",
+          "doc1.txt"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.23
+      },
+      {
+        "id": "q34",
+        "kind": "lexical",
+        "question": "What is the difference between recall at k and hit rate at k?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hybrid-search-rrf.md",
+          "reranking.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.74
+      },
+      {
+        "id": "q35",
+        "kind": "lexical",
+        "question": "What relevance threshold does the guardrail use by default?",
+        "retrieved_sources": [
+          "reranking.md",
+          "doc2.txt",
+          "hybrid-search-rrf.md",
+          "scrag-architecture.md",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.25,
+        "ndcg": 0.43067655807339306,
+        "latency_ms": 9.65
+      },
+      {
+        "id": "q36",
+        "kind": "lexical",
+        "question": "Which language model does SCRAG use by default?",
+        "retrieved_sources": [
+          "embeddings.md",
+          "chunking.md",
+          "scrag-api.md",
+          "hybrid-search-rrf.md",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "scrag-architecture.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.2,
+        "ndcg": 0.38685280723454163,
+        "latency_ms": 9.46
+      },
+      {
+        "id": "q37",
+        "kind": "lexical",
+        "question": "What fields does an API error response contain?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "doc3.txt",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.67
+      },
+      {
+        "id": "q38",
+        "kind": "lexical",
+        "question": "Which endpoint runs retrieval without calling a language model?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "scrag-architecture.md",
+          "doc1.txt",
+          "hallucination.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.19
+      },
+      {
+        "id": "q39",
+        "kind": "lexical",
+        "question": "What error code is returned after the demo's daily budget is spent?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "free-tier-deployment.md",
+          "prompt-injection.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.86
+      },
+      {
+        "id": "q40",
+        "kind": "semantic",
+        "question": "Why is the sample knowledge base built into the container image?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "doc1.txt",
+          "hallucination.md",
+          "hybrid-search-rrf.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.84
+      },
+      {
+        "id": "q41",
+        "kind": "lexical",
+        "question": "What does each SCRAG chunk record about its source document?",
+        "retrieved_sources": [
+          "chunking.md",
+          "scrag-architecture.md",
+          "vector-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.98
+      },
+      {
+        "id": "q42",
+        "kind": "semantic",
+        "question": "When does the chunker fall back to hard character cuts?",
+        "retrieved_sources": [
+          "chunking.md",
+          "scrag-architecture.md",
+          "reranking.md",
+          "doc3.txt",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.99
+      },
+      {
+        "id": "q43",
+        "kind": "semantic",
+        "question": "What is the trade-off between small and large chunks?",
+        "retrieved_sources": [
+          "chunking.md",
+          "vector-search.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.98
+      },
+      {
+        "id": "q44",
+        "kind": "semantic",
+        "question": "What alternative to fixed-length chunking groups sentences by topic?",
+        "retrieved_sources": [
+          "chunking.md",
+          "embeddings.md",
+          "bm25-keyword-search.md",
+          "vector-search.md"
+        ],
+        "relevant_sources": [
+          "chunking.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.98
+      },
+      {
+        "id": "q45",
+        "kind": "lexical",
+        "question": "How much memory does the free API instance have?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "embeddings.md",
+          "scrag-api.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.51
+      },
+      {
+        "id": "q46",
+        "kind": "semantic",
+        "question": "How long does a sleeping free instance take to wake up?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "embeddings.md",
+          "chunking.md",
+          "bm25-keyword-search.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.87
+      },
+      {
+        "id": "q47",
+        "kind": "semantic",
+        "question": "Why does the demo answer its sample questions from recorded results?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "evaluation-metrics.md",
+          "llm-as-judge.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.63
+      },
+      {
+        "id": "q48",
+        "kind": "semantic",
+        "question": "What happens to uploads and history when the free database is paused?",
+        "retrieved_sources": [
+          "free-tier-deployment.md",
+          "scrag-api.md",
+          "embeddings.md",
+          "vector-search.md"
+        ],
+        "relevant_sources": [
+          "free-tier-deployment.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.1
+      },
+      {
+        "id": "q49",
+        "kind": "semantic",
+        "question": "What does grounding mean in retrieval-augmented generation?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "doc1.txt",
+          "scrag-architecture.md",
+          "evaluation-metrics.md"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.87
+      },
+      {
+        "id": "q50",
+        "kind": "semantic",
+        "question": "What should the model say when the context does not contain the answer?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "llm-as-judge.md",
+          "scrag-architecture.md",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "hallucination.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 12.34
+      },
+      {
+        "id": "q51",
+        "kind": "semantic",
+        "question": "How should retrieved passages and tool outputs be treated to resist prompt injection?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "hallucination.md",
+          "doc2.txt"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.33
+      },
+      {
+        "id": "q52",
+        "kind": "semantic",
+        "question": "What precautions should a public demo take with uploaded files?",
+        "retrieved_sources": [
+          "prompt-injection.md",
+          "free-tier-deployment.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "prompt-injection.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 11.23
+      },
+      {
+        "id": "q53",
+        "kind": "semantic",
+        "question": "What does faithfulness measure in answer evaluation?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "hallucination.md",
+          "doc3.txt",
+          "scrag-architecture.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 10.55
+      },
+      {
+        "id": "q54",
+        "kind": "semantic",
+        "question": "What does answer relevance ask?",
+        "retrieved_sources": [
+          "hallucination.md",
+          "evaluation-metrics.md",
+          "scrag-architecture.md",
+          "doc3.txt"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 0.5,
+        "ndcg": 0.6309297535714575,
+        "latency_ms": 11.76
+      },
+      {
+        "id": "q55",
+        "kind": "lexical",
+        "question": "What is a golden dataset in retrieval evaluation?",
+        "retrieved_sources": [
+          "evaluation-metrics.md",
+          "doc1.txt",
+          "reranking.md",
+          "scrag-api.md"
+        ],
+        "relevant_sources": [
+          "evaluation-metrics.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.93
+      },
+      {
+        "id": "q56",
+        "kind": "lexical",
+        "question": "What are the main tuning knobs of Reciprocal Rank Fusion?",
+        "retrieved_sources": [
+          "hybrid-search-rrf.md",
+          "evaluation-metrics.md",
+          "reranking.md"
+        ],
+        "relevant_sources": [
+          "hybrid-search-rrf.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 13.18
+      },
+      {
+        "id": "q57",
+        "kind": "lexical",
+        "question": "Which response header carries the request identifier?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "doc3.txt",
+          "doc1.txt",
+          "chunking.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.18
+      },
+      {
+        "id": "q58",
+        "kind": "lexical",
+        "question": "Which HTTP status does a rate-limited request receive?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "reranking.md",
+          "evaluation-metrics.md",
+          "prompt-injection.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.98
+      },
+      {
+        "id": "q59",
+        "kind": "lexical",
+        "question": "Under which path prefix is the versioned API served?",
+        "retrieved_sources": [
+          "scrag-api.md",
+          "scrag-architecture.md",
+          "free-tier-deployment.md"
+        ],
+        "relevant_sources": [
+          "scrag-api.md"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 9.86
+      },
+      {
+        "id": "q60",
+        "kind": "semantic",
+        "question": "What does the evaluator agent return?",
+        "retrieved_sources": [
+          "doc3.txt",
+          "hallucination.md",
+          "scrag-architecture.md",
+          "doc2.txt"
+        ],
+        "relevant_sources": [
+          "doc3.txt"
+        ],
+        "recall": 1.0,
+        "hit": 1.0,
+        "rr": 1.0,
+        "ndcg": 1.0,
+        "latency_ms": 8.04
+      }
+    ]
+  }
+}
