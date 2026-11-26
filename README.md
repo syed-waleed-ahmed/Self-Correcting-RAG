@@ -97,7 +97,10 @@ without touching orchestration logic.
   - recall 0.967 -> 0.992 and MRR 0.943 -> 0.966;
   - lexical-question MRR 0.883 -> 0.938.
 
-  See [docs/evaluation.md](docs/evaluation.md).
+  Small sample, so read these with their intervals: the recall gain is two
+  questions, and no 95% paired bootstrap interval excludes zero
+  (`scripts/paired_bootstrap.py`). The same author wrote the corpus and the
+  questions. See [docs/evaluation.md](docs/evaluation.md).
 - Evaluation harness:
   - `scrag eval` reports recall@k, hit rate, MRR and nDCG on a 60-question
     golden dataset;
