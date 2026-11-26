@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **How sure the hybrid-retrieval gain is.** `scripts/paired_bootstrap.py`
+  computes paired bootstrap intervals for hybrid minus dense from the
+  per-question reports, now committed in `data/eval/reports/`. No interval
+  excludes zero, and the recall@5 gain is two questions; `docs/evaluation.md`
+  says so beside the averages.
+
+### Removed
+
+- **The generated code graph** (`graphify-out/`) is no longer tracked.
+
 ### Fixed
 
 - **The README's feature list gave the old test count.** It said 236 tests

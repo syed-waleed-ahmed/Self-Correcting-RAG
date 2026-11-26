@@ -77,6 +77,41 @@ The first version of this page (40 questions) measured hybrid MRR 0.961
 against dense 0.915 at k = 5. Adding the 20 questions narrowed the gap but
 kept the ranking.
 
+### How sure the difference is (paired bootstrap, 2026-11-26)
+
+The averages above say which mode scored higher, not how confident that is.
+Both modes answer the same 60 questions, so the comparison is paired:
+`scripts/paired_bootstrap.py` resamples the questions 10,000 times and
+reports the mean per-question difference with a 95% interval. The
+per-question reports it reads are committed in `data/eval/reports/`.
+
+| Metric | Hybrid minus dense | 95% interval | Questions |
+| --- | --- | --- | --- |
+| Recall@5 | +0.025 | 0.000 to +0.067 | 2 better, 0 worse |
+| Hit@5 | +0.017 | 0.000 to +0.050 | 1 better, 0 worse |
+| MRR@5 | +0.023 | -0.010 to +0.061 | 4 better, 2 worse |
+| nDCG@5 | +0.026 | -0.003 to +0.059 | 5 better, 2 worse |
+| MRR@3 | +0.019 | -0.014 to +0.056 | 3 better, 1 worse |
+
+Every estimate favours hybrid, but no interval excludes zero, and the
+recall gain is two questions (q10 and q35). The set is too small to
+separate the two modes with confidence; what it supports is that hybrid
+never did worse on recall and helped on lexical questions.
+
+Labelling per document flatters dense retrieval on one question: at k = 5,
+dense gets credit for q36 from a chunk of the right document that does not
+contain the answer, while hybrid's fifth chunk does contain it. Chunk-level
+labels would make the comparison stricter.
+
+To regenerate the reports (the embedding backend changes latency but not the
+vectors, see [Embedding backends](#embedding-backends)):
+
+```bash
+python main.py eval --k 3 --output data/eval/reports/retrieval-k3.json
+python main.py eval --k 5 --output data/eval/reports/retrieval-k5.json
+python scripts/paired_bootstrap.py data/eval/reports/retrieval-k3.json data/eval/reports/retrieval-k5.json
+```
+
 ## Answer quality: baseline vs hybrid vs self-correcting vs agent (2026-11-10)
 
 ```bash
